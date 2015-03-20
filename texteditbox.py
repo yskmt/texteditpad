@@ -128,6 +128,7 @@ class TextEditBox:
     def do_command(self, ch):
         "Process a single editing command."
         (maxy, maxx) = self._getmaxyx()
+        (height, width) = (maxy+1, maxx+1)
         self.lastcmd = ch
 
         if curses.ascii.isprint(ch):
@@ -138,19 +139,17 @@ class TextEditBox:
 
         elif ch == curses.ascii.SOH:  # ^a
             self.ppos = (self.ppos[0], 0)
-            ofs = self.ppos[0]-self.lnbg[self.vpos[0]]
-            self.vpos = (self.vpos[0], ofs*maxx + self.ppos[1])
-
+            self.vpos = (self.vpos[0], int((self.vpos[1]/width)*width))
             self.win.move(self.ppos[0], self.ppos[1])
             
         elif ch == curses.ascii.ENQ:  # ^e
-            ofs = self.ppos[0]-self.lnbg[self.vpos[0]]
-            if ofs == 0:
-                self.ppos = (self.ppos[0], len(self.text[self.vpos[0]])-ofs*maxx)
-                self.vpos = (self.vpos[0], len(self.text[self.vpos[0]]))
-            else:
+
+            if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
                 self.ppos = (self.ppos[0], maxx)
-                self.vpos = (self.vpos[0], (ofs+1)*maxx)                
+                self.vpos = (self.vpos[0], int((self.vpos[1]/width+1)*width-1))
+            else:
+                self.ppos = (self.ppos[0], len(self.text[self.vpos[0]])%width)
+                self.vpos = (self.vpos[0], len(self.text[self.vpos[0]]))
 
             self.win.move(self.ppos[0], self.ppos[1])
 
@@ -329,14 +328,14 @@ class TextEditBox:
             if not self.do_command(ch):
                 break
 
-            # (backy, backx) = self.win.getyx()
-            # maxy, maxx = self._getmaxyx()
-            # # self.win.addstr(maxy, 0, '%d %d %d'
-            #     # % (ch, self.vpos[0], self.vpos[1]))
-            # self.win.addstr(maxy, 0, ' '*maxx)
+            (backy, backx) = self.win.getyx()
+            maxy, maxx = self._getmaxyx()
+            self.win.addstr(maxy, 0, ' '*maxx)
+            self.win.addstr(maxy, 0, '%d %d %d'
+                % (ch, self.vpos[0], self.vpos[1]))
             # self.win.addstr(maxy, 0, str(self.lnbg))
-            # self.win.refresh()
-            # self.win.move(backy, backx)
+            self.win.refresh()
+            self.win.move(backy, backx)
 
         return self.text
 
