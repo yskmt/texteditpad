@@ -53,7 +53,6 @@ class TextEditBox:
         self.lnbg = [[0]]
         self.ppos = (0, 0)  # physical position
         self.vpos = (0, 0)  # virtual position
-        self.nlines = 1
         win.keypad(1)
 
     def _getmaxyx(self):
@@ -129,6 +128,7 @@ class TextEditBox:
         "Process a single editing command."
         (maxy, maxx) = self._getmaxyx()
         (height, width) = (maxy+1, maxx+1)
+        nlines = sum(len(x) for x in self.lnbg)
         self.lastcmd = ch
 
         if curses.ascii.isprint(ch):
@@ -157,7 +157,6 @@ class TextEditBox:
             if self.ppos[1] > 0:
                 self.ppos = (self.ppos[0], self.ppos[1]-1)
                 self.vpos = (self.vpos[0], self.vpos[1]-1)
-                self.win.move(self.ppos[0], self.ppos[1])
             elif self.ppos[0] == 0:
                 curses.beep()
                 pass
@@ -169,16 +168,14 @@ class TextEditBox:
                 else:
                     self.vpos = (self.vpos[0], self.vpos[1]-1)
                     self.ppos = (self.ppos[0]-1, maxx)
-                self.win.move(self.ppos[0], self.ppos[1])
+            self.win.move(self.ppos[0], self.ppos[1])
 
         elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f ->
             ll = len(self.text[self.vpos[0]])
-            nlines = sum(len(x) for x in self.lnbg)
             
             if (self.ppos[1] < maxx) and (self.vpos[1] < ll):
                 self.ppos = (self.ppos[0], self.ppos[1]+1)
                 self.vpos = (self.vpos[0], self.vpos[1]+1)
-                self.win.move(self.ppos[0], self.ppos[1])
 
             elif self.ppos[0] == maxy or (self.ppos[0]==nlines-1):
                 curses.beep()
@@ -191,8 +188,40 @@ class TextEditBox:
                 else:
                     self.vpos = (self.vpos[0], self.vpos[1]+1)
                     self.ppos = (self.ppos[0]+1, 0)
+            self.win.move(self.ppos[0], self.ppos[1])
+
+        elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n            
+            if self.ppos[0] < (nlines-1):
+                # within the same vline
+                if self.vpos[0] < max(self.lnbg[self.vpos[0]]):
+                    ll = len(self.text[self.vpos[0]])
+                    self.vpos = (self.vpos[0], min(self.vpos[1]+width, ll))
+                    self.ppos = (self.ppos[0]+1, min(self.ppos[1], ll%width))
+                # move to next vline
+                else:
+                    ll = len(self.text[self.vpos[0]+1])
+                    self.vpos = (self.vpos[0]+1, min(self.vpos[1], ll))
+                    self.ppos = (self.ppos[0]+1, min(self.ppos[1], ll))
                 self.win.move(self.ppos[0], self.ppos[1])
-                
+            else:
+                curses.beep()
+
+        elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
+            if self.ppos[0] > 0:
+                # move to previous vline
+                if self.vpos[1] < width:
+                    ll = len(self.text[self.vpos[0]-1])
+                    self.vpos = (self.vpos[0]-1, min(self.vpos[1], ll))
+                    self.ppos = (self.ppos[0]-1, min(self.ppos[1], ll))
+                # within the same vline
+                else:
+                    self.vpos = (self.vpos[0], self.vpos[1]-width)
+                    self.ppos = (self.ppos[0]-1, self.ppos[1])
+
+                self.win.move(self.ppos[0], self.ppos[1])
+            else:
+                curses.beep()
+            
         elif ch == curses.ascii.EOT:  # ^d
             if self.ppos[1] == len(self.text[self.ppos[0]]):
                 curses.beep()
@@ -272,22 +301,6 @@ class TextEditBox:
         elif ch == curses.ascii.FF:  # ^l
             self.win.refresh()
 
-        elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n
-            if self.ppos[0] < (self.nlines - 1):
-                self.ppos[0] += 1
-                self.ppos[1] = min(self.ppos[1], len(self.text[self.ppos[0]]))
-                self.win.move(self.ppos[0], self.ppos[1])
-            else:
-                curses.beep()
-
-        elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
-            if self.ppos[0] > 0:
-                self.ppos[0] -= 1
-                self.ppos[1] = min(self.ppos[1], len(self.text[self.ppos[0]]))
-                self.win.move(self.ppos[0], self.ppos[1])
-            else:
-                curses.beep()
-
         elif ch == curses.ascii.BEL:  # ^g
             return 0
 
@@ -331,8 +344,8 @@ class TextEditBox:
             (backy, backx) = self.win.getyx()
             maxy, maxx = self._getmaxyx()
             self.win.addstr(maxy, 0, ' '*maxx)
-            self.win.addstr(maxy, 0, '%d %d %d'
-                % (ch, self.vpos[0], self.vpos[1]))
+            self.win.addstr(maxy, 0, '%d %d %d %d %d'
+                % (ch, self.vpos[0], self.vpos[1], self.ppos[0], self.ppos[1]))
             # self.win.addstr(maxy, 0, str(self.lnbg))
             self.win.refresh()
             self.win.move(backy, backx)
