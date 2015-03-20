@@ -156,8 +156,17 @@ class Textbox:
                 self.win.delch()
                 
         elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
-            if x == 0:
-                curses.beep()
+            if self.cn == 0:
+                if self.ln == 0:
+                    curses.beep()
+                else:
+                    self.cn = len(self.text[self.ln-1])
+                    self.text[self.ln-1] += self.text[self.ln]
+                    self.text.pop(self.ln)
+                    self.nlines -= 1
+                    self.ln -= 1
+                    self.redraw_lines(self.ln, self.nlines)
+                    self.win.move(self.ln, self.cn)
             else:
                 self.text[self.ln]\
                     = self.text[self.ln][:self.cn - 1]\
