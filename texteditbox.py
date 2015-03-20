@@ -96,9 +96,11 @@ class TextEditBox:
         (backy, backx) = self.win.getyx()
        
         nspaces = maxx - (self.ppos[1])
+
+        # right space big enought to fit the rest of line
         if nspaces > len(trailingstr):
             self.win.addstr(trailingstr)
-
+        # if not
         else:
             self.win.addstr(trailingstr[:nspaces])
             trailingstr = trailingstr[nspaces:]
@@ -108,11 +110,11 @@ class TextEditBox:
                 self.win.addstr(self.ppos[0], self.ppos[1],
                                 trailingstr[ln:ln+maxx])
 
-        # redraw the rest of vlines
-        for li in range(self.vpos[0]+1, len(self.text)):
-            self.draw_vline(li)
+            # redraw the rest of vlines
+            pos = self.ppos
+            for li in range(self.vpos[0]+1, len(self.text)):
+                pos = self.draw_vline(pos, li)
         
-                
         self.ppos = [backy, backx]
         self.win.move(backy, backx)
 
@@ -251,7 +253,6 @@ class TextEditBox:
                 self.win.delch()
                 self.ppos[1] -= 1
 
-
         elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
             if maxy == 0:  # no space
                 curses.beep()
@@ -260,8 +261,7 @@ class TextEditBox:
                 # update texts
                 self.text.insert(
                     self.vpos[0] + 1, self.text[self.vpos[0]][self.vpos[1]:])
-                self.text[self.vpos[0]] = self.text[
-                    self.vpos[0]][:self.vpos[1]]
+                self.text[self.vpos[0]] = self.text[self.vpos[0]][:self.vpos[1]]
 
                 # update the line-beginning counts
                 self.lnbg.insert(self.vpos[0]+1, [])
@@ -269,9 +269,11 @@ class TextEditBox:
                     = range(0, len(self.text[self.vpos[0]]), maxx)
                 self.lnbg[self.vpos[0]+1] \
                     = range(0, len(self.text[self.vpos[0]+1]), maxx)
+                if len(self.lnbg[self.vpos[0]+1])==0:
+                    self.lnbg[self.vpos[0]+1] = [0]
                 
                 # clear the right part of the pline
-                for c in range(self.ppos[1], maxx+1):
+                for c in range(self.ppos[1], width):
                     self.win.addch(' ')
 
                 # move p- and v- cursors
@@ -280,7 +282,8 @@ class TextEditBox:
                 self.vpos = (self.vpos[0]+1, 0)
 
                 # redraw the bottom lines
-                self.redraw_lines(self.vpos[0], len(self.text))
+                self.redraw_vlines(self.ppos, self.vpos[0], height, width,
+                                   len(self.text))
 
                 # move the cursor position back
                 self.ppos = (backy, backx)
@@ -306,27 +309,31 @@ class TextEditBox:
 
         return 1
 
-    def draw_vline(self, ln):
+    def draw_vline(self, pos, height, width, ln):
         
-        (maxy, maxx) = self._getmaxyx()
-        for li in range(0, len(self.text[ln]), maxx):
-            self.win.addstr(self.ppos[0], self.ppos[1],
-                            self.text[ln][li:li+maxx])
-            self.ppos = (self.ppos[0]+1, 0)
+        for li in range(0, len(self.text[ln]), width):
+            self.win.addstr(pos[0], pos[1],
+                            self.text[ln][li:li+width])
+            pos = (pos[0]+1, pos[1])
 
+        if len(self.text[ln]) == 0:
+            pos = (pos[0]+1, pos[1])
+            
+        return pos
     
-    def redraw_lines(self, stl, edl):
-        "Redraw lines from stl to edl"
+    def redraw_vlines(self, pos, stl, edl):
+        "Redraw vlines from stl to edl at position pos"
 
         (maxy, maxx) = self._getmaxyx()
-
+        
         # clear the redrawn part
         nlines = sum(len(x) for x in self.lnbg)
-        for l in range(self.ppos[0], nlines):
-            self.win.deleteln()
-            
-        for l in range(stl, edl):
-            self.draw_vline(l)
+        for l in range(pos[0], nlines):
+            self.win.addstr(l, 0, ' '*(maxx+1))
+
+        # now draw each line
+        for li in range(stl, edl):
+            pos = self.draw_vline(pos, maxy+1, maxx+1, li)
 
         return
 
@@ -341,14 +348,14 @@ class TextEditBox:
             if not self.do_command(ch):
                 break
 
-            (backy, backx) = self.win.getyx()
-            maxy, maxx = self._getmaxyx()
-            self.win.addstr(maxy, 0, ' '*maxx)
-            self.win.addstr(maxy, 0, '%d %d %d %d %d'
-                % (ch, self.vpos[0], self.vpos[1], self.ppos[0], self.ppos[1]))
-            # self.win.addstr(maxy, 0, str(self.lnbg))
-            self.win.refresh()
-            self.win.move(backy, backx)
+            # (backy, backx) = self.win.getyx()
+            # maxy, maxx = self._getmaxyx()
+            # self.win.addstr(maxy, 0, ' '*maxx)
+            # self.win.addstr(maxy, 0, '%d %d %d %d %d'
+            #     % (ch, self.vpos[0], self.vpos[1], self.ppos[0], self.ppos[1]))
+            # # self.win.addstr(maxy, 0, str(self.lnbg))
+            # self.win.refresh()
+            # self.win.move(backy, backx)
 
         return self.text
 
@@ -378,7 +385,7 @@ if __name__ == '__main__':
         ymax, xmax = stdscr.getmaxyx()
 
         ncols, nlines = xmax - 5, ymax - 3
-        ncols, nlines = 20, 20
+        ncols, nlines = 6, 6
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
