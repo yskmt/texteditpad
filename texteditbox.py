@@ -111,6 +111,7 @@ class Textbox:
         (maxy, maxx) = self._getmaxyx()
         (y, x) = self.win.getyx()
         self.lastcmd = ch
+
         if curses.ascii.isprint(ch):
             if y < maxy or x < maxx:
                 self._insert_printable_char(ch)
@@ -121,8 +122,15 @@ class Textbox:
                         = self.text[self.ln][:self.cn] + chr(ch) \
                         + self.text[self.ln][self.cn:]
                 self.cn += 1
+                
         elif ch == curses.ascii.SOH:  # ^a
-            self.win.move(y, 0)
+            self.cn = 0
+            self.win.move(self.ln, self.cn)
+            
+        elif ch == curses.ascii.ENQ:  # ^e
+            self.cn = len(self.text[self.ln])
+            self.win.move(self.ln, self.cn)
+            
         elif ch in (curses.ascii.STX, curses.KEY_LEFT):
             if x > 0:
                 self.cn -= 1
@@ -137,24 +145,28 @@ class Textbox:
                 self.win.move(y - 1, maxx)
                 self.ln -= 1
                 self.cn = len(self.text[self.ln])
-        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
-            if x==0:
+
+        elif ch == curses.ascii.EOT:  # ^d
+            if self.cn == len(self.text[self.ln]):
                 curses.beep()
             else:
                 self.text[self.ln]\
-                    = self.text[self.ln][:self.cn-1]\
+                    = self.text[self.ln][:self.cn]\
+                    + self.text[self.ln][self.cn+1:]
+                self.win.delch()
+                
+        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
+            if x == 0:
+                curses.beep()
+            else:
+                self.text[self.ln]\
+                    = self.text[self.ln][:self.cn - 1]\
                     + self.text[self.ln][self.cn:]
-                self.win.move(y, self.cn-1)
+                self.win.move(y, self.cn - 1)
                 self.win.delch()
                 self.cn -= 1
-        elif ch == curses.ascii.EOT:                           # ^d
-            self.win.delch()
-        elif ch == curses.ascii.ENQ:                           # ^e
-            if self.stripspaces:
-                self.win.move(y, self._end_of_line(y))
-            else:
-                self.win.move(y, maxx)
-        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):       # ^f
+
+        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f
             if x < len(self.text[self.ln]):
                 self.cn += 1
                 self.win.move(y, x + 1)
@@ -165,43 +177,60 @@ class Textbox:
                 self.cn = 0
                 self.ln += 1
                 self.win.move(y + 1, 0)
-        elif ch == curses.ascii.BEL:                           # ^g
-            return 0
-        elif ch == curses.ascii.NL:                            # ^j
+        
+        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
             if maxy == 0:
+                curses.beep()
                 return 0
             elif y < maxy:
-                self.text.append('')
+                self.text.insert(self.ln + 1, self.text[self.ln][self.cn:])
+                self.text[self.ln] = self.text[self.ln][:self.cn]
                 self.ln += 1
                 self.cn = 0
                 self.nlines += 1
-                self.win.move(y + 1, 0)
-        elif ch == curses.ascii.VT:                            # ^k
-            if x == 0 and self._end_of_line(y) == 0:
-                self.win.deleteln()
-            else:
-                # first undo the effect of self._end_of_line
-                self.win.move(y, x)
-                self.win.clrtoeol()
-        elif ch == curses.ascii.FF:                            # ^l
+                self.redraw_lines(self.ln - 1, self.nlines)
+                self.win.move(self.ln, 0)
+                
+        elif ch == curses.ascii.VT:  # ^k
+            self.text[self.ln]\
+                = self.text[self.ln][:self.cn]
+            self.redraw_lines(self.ln, self.ln+1)
+            
+        elif ch == curses.ascii.FF:  # ^l
             self.win.refresh()
-        elif ch in (curses.ascii.SO, curses.KEY_DOWN):         # ^n
+
+        elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n
             if y < (self.nlines - 1):
-                self.cn = max(min(x, len(self.text[y + 1]) - 1), 0)
-                self.win.move(y + 1, self.cn)
+                self.cn = min(x, len(self.text[y + 1]))
                 self.ln += 1
+                self.win.move(self.ln, self.cn)
             else:
                 curses.beep()
-        elif ch == curses.ascii.SI:                            # ^o
-            self.win.insertln()
+
         elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
-            if y > 0:
-                self.cn = max(min(x, len(self.text[y - 1]) - 1), 0)
+            if self.ln > 0:
+                self.cn = min(x, len(self.text[y - 1]))
                 self.win.move(y - 1, self.cn)
                 self.ln -= 1
             else:
                 curses.beep()
+
+        elif ch == curses.ascii.BEL:  # ^g
+            return 0
+
+                
         return 1
+
+    def redraw_lines(self, stl, edl):
+        "Redraw lines from stl to edl"
+
+        for l in range(stl, edl):
+            self.win.deleteln()
+
+        for l in range(stl, edl):
+            self.win.addstr(l, 0, self.text[l])
+
+        return
 
     def gather(self):
         "Collect and return the contents of the window."
@@ -252,7 +281,7 @@ def validate(ch):
     if ch == curses.ascii.ESC:
         raise EscapePressed
 
-    if  ch == curses.KEY_RESIZE:
+    if ch == curses.KEY_RESIZE:
         raise EscapePressed
 
     # Fix backspace for iterm
@@ -261,7 +290,7 @@ def validate(ch):
 
     return ch
 
-    
+
 if __name__ == '__main__':
     def test_editbox(stdscr):
         ymax, xmax = stdscr.getmaxyx()
