@@ -6,8 +6,9 @@ Simple textbox editing widget with Emacs-like keybindings.
 Editing widget using the interior of a window object.
 Supports the following Emacs-like key bindings:
 
+
 |Command|  Description                                            |
-|-------+---------------------------------------------------------|
+|-------|---------------------------------------------------------|
 |Ctrl-A |  Go to left edge of window.                             |
 |Ctrl-B |  Cursor left, wrapping to previous line if appropriate. |
 |Ctrl-D |  Delete character under cursor.                         |
