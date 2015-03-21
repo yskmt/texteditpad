@@ -1,8 +1,8 @@
-# texteditbox
+texteditbox
+===
 Simple textbox editing widget with Emacs-like keybindings.
 
-
-
+# Usage
 Editing widget using the interior of a window object.
 Supports the following Emacs-like key bindings:
 

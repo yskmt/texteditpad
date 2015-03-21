@@ -374,7 +374,7 @@ class TextEditBox:
         pos = (nlines, 0)
         self.redraw_vlines(pos, pos[0], len(self.text))
 
-    def edit(self, validate=None):
+    def edit(self, validate=None, debug_mode=False):
         "Edit in the widget window and collect the results."
         while 1:
             ch = self.win.getch()
@@ -385,16 +385,18 @@ class TextEditBox:
             if not self.do_command(ch):
                 break
 
-            (backy, backx) = self.win.getyx()
-            maxy, maxx = self._getmaxyx()
-            self.win.addstr(maxy, 0, ' ' * maxx)
-            self.win.addstr(maxy, 0, '%d %d %d %d %d'
-                            % (ch, self.vpos[0], self.vpos[1], self.ppos[0], self.ppos[1]))
-            # self.win.addstr(maxy, 0, str(self.lnbg))
-            self.win.refresh()
-            self.win.move(backy, backx)
+            if debug_mode:
+                (backy, backx) = self.win.getyx()
+                maxy, maxx = self._getmaxyx()
+                self.win.addstr(maxy, 0, ' ' * maxx)
+                self.win.addstr(maxy, 0, '%d %d %d %d %d'
+                                % (ch, self.vpos[0], self.vpos[1],
+                                   self.ppos[0], self.ppos[1]))
+                # self.win.addstr(maxy, 0, str(self.lnbg))
+                self.win.refresh()
+                self.win.move(backy, backx)
 
-        return self.text, self.lnbg
+        return self.text
 
 
 class EscapePressed(Exception):
@@ -422,7 +424,6 @@ if __name__ == '__main__':
         ymax, xmax = stdscr.getmaxyx()
 
         ncols, nlines = xmax - 5, ymax - 3
-        ncols, nlines = 20, 10
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
@@ -430,12 +431,11 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out, lnbg = TextEditBox(win, stdscr).edit(validate=validate)
+            out = TextEditBox(win, stdscr).edit(validate=validate)
         except EscapePressed:
             out = None
 
-        return out, lnbg
+        return out
 
-    text, lnbg = curses.wrapper(test_editbox)
+    text = curses.wrapper(test_editbox)
     print 'Contents of text box:', repr(text)
-    print lnbg
