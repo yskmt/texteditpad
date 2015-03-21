@@ -10,6 +10,7 @@ Usage
 --------
 
 ::
+
   import curses
   import texteditpad
   
