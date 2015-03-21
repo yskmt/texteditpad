@@ -296,33 +296,14 @@ class TextEditBox:
 
         elif ch == curses.ascii.VT:  # ^k
 
-            backy, backx = self.ppos
             if len(self.text[self.vpos[0]]) == 0 and self.vpos[0] > 0:
                 # del at the beginning of a vline
                 backy, backx = self.ppos
                 self.delat(self.vpos)
                 self.ppos = (backy, backx)
+                self.win.move(self.ppos[0], self.ppos[1])
             else:
-                # update text
-                self.text[self.vpos[0]]\
-                    = self.text[self.vpos[0]][:self.vpos[1]]
-
-                # update line count
-                self.lnbg[self.vpos[0]]\
-                    = range(0, len(self.text[self.vpos[0]]), self.width)
-                if len(self.lnbg[self.vpos[0]]) == 0:
-                    self.lnbg[self.vpos[0]] = [0]
-
-                # redraw the bottom lines
-                pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
-
-                self.redraw_vlines(pos, self.vpos[0],
-                                   len(self.text))
-
-                # set the cursor back
-                self.ppos = (backy, backx)
-
-            self.win.move(self.ppos[0], self.ppos[1])
+                self.clear_right()
 
         elif ch == curses.ascii.FF:  # ^l
             self.win.refresh()
@@ -360,6 +341,7 @@ class TextEditBox:
 
     def delat(self, pos):
         "Delete chracter at position pos"
+        "TODO: check if the end of line or not."
 
         # del within a line
         if pos[1] < len(self.text[pos[0]]):
@@ -382,6 +364,31 @@ class TextEditBox:
         pos = (nlines, 0)
         self.redraw_vlines(pos, pos[0], len(self.text))
 
+    def clear_right(self):
+        "Clear right side of the cursor."
+
+        backy, backx = self.ppos
+        # update text
+        self.text[self.vpos[0]]\
+            = self.text[self.vpos[0]][:self.vpos[1]]
+
+        # update line count
+        self.lnbg[self.vpos[0]]\
+            = range(0, len(self.text[self.vpos[0]]), self.width)
+        if len(self.lnbg[self.vpos[0]]) == 0:
+            self.lnbg[self.vpos[0]] = [0]
+
+        # redraw the bottom lines
+        pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
+
+        self.redraw_vlines(pos, self.vpos[0],
+                           len(self.text))
+
+        # set the cursor back
+        self.ppos = (backy, backx)
+        self.win.move(self.ppos[0], self.ppos[1])
+
+        
     def edit(self, validate=None, debug_mode=False):
         "Edit in the widget window and collect the results."
         while 1:
