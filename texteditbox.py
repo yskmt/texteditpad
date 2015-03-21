@@ -207,7 +207,7 @@ class TextEditBox:
         elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n            
             if self.ppos[0] < (nlines-1):
                 # within the same vline
-                if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
+                if self.vpos[1] < max(self.text[self.vpos[0]]):
                     ll = len(self.text[self.vpos[0]])
                     self.vpos = (self.vpos[0], min(self.vpos[1]+width, ll))
                     self.ppos = (self.ppos[0]+1, min(self.ppos[1], ll%width))
