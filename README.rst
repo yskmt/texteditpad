@@ -9,7 +9,7 @@ replace ``curses.textpad`` routine.
 Usage
 --------
 
-::
+:python:
 
   import curses
   import texteditpad
