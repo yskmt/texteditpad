@@ -18,7 +18,7 @@ def rectangle(win, uly, ulx, lry, lrx):
     win.addch(lry, ulx, curses.ACS_LLCORNER)
 
 
-class Textbox:
+class TextEditBox:
 
     """Editing widget using the interior of a window object.
      Supports the following Emacs-like key bindings:
@@ -49,194 +49,330 @@ class Textbox:
         self.insert_mode = insert_mode
         self.lastcmd = None
         self.text = ['']
-        self.ln = 0  # line number
-        self.cn = 0  # column number
-        self.nlines = 1
+        self.lnbg = [[0]]
+        self.ppos = (0, 0)  # physical position
+        self.vpos = (0, 0)  # virtual position
+        (self.maxy, self.maxx) = self._getmaxyx()
+        (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
         win.keypad(1)
 
     def _getmaxyx(self):
         (maxy, maxx) = self.win.getmaxyx()
         return maxy - 1, maxx - 1
 
-    def _end_of_line(self, y):
-        """Go to the location of the first blank on the given line,
-        returning the index of the last non-blank character."""
-        (maxy, maxx) = self._getmaxyx()
-        last = maxx
-        while True:
-            if curses.ascii.ascii(self.win.inch(y, last)) != curses.ascii.SP:
-                last = min(maxx, last + 1)
-                break
-            elif last == 0:
-                break
-            last = last - 1
-        return last
-
     def _insert_printable_char(self, ch):
-        (y, x) = self.win.getyx()
-        (maxy, maxx) = self._getmaxyx()
-        (backy, backx) = None, None
-        (backy, backx) = 0, 0
+        trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
 
-        nl = 0
-        while (y < maxy and x <= maxx):
-            oldch = self.win.inch()
-            # The try-catch ignores the error we trigger from some curses
-            # versions by trying to write into the lowest-rightmost spot
-            # in the window.
-            try:
-                self.win.addch(ch)
-            except curses.error:
-                pass
+        # update text
+        self.text[self.vpos[0]]\
+            = self.text[self.vpos[0]][:self.vpos[1]] + chr(ch) \
+            + trailingstr
+        self.vpos = (self.vpos[0], self.vpos[1] + 1)
 
-            if not self.insert_mode:
-                break
+        # update line count
+        self.lnbg[self.vpos[0]] = range(0, len(self.text[self.vpos[0]]),
+                                        self.width)
+        self.ppos = self.win.getyx()
 
-            # Remember where to put the cursor back since we are in insert_mode
-            if nl == 0:
-                nl = 1
-                (backy, backx) = self.win.getyx()
+        # draw the trailing part
+        try:
+            self.win.addch(ch)
+        except curses.error:
+            pass
+        (backy, backx) = self.win.getyx()
 
-            ch = oldch
-            (y, x) = self.win.getyx()
-            if (x == 0 and y > 0):
-                break
+        nspaces = self.maxx - (self.ppos[1])
+        # right space big enough to fit the rest of line
+        if nspaces > len(trailingstr):
+            self.win.addstr(trailingstr)
+        # if not
+        else:
+            self.win.addstr(trailingstr[:nspaces])
+            trailingstr = trailingstr[nspaces:]
+            pos = (self.ppos[0], 0)
 
-        if self.insert_mode:
-            self.win.move(backy, backx)
+            # draw the rest of the vline
+            for ln in range(0, len(trailingstr) / self.width + 1):
+                pos = (pos[0] + 1, pos[1])
+                self.win.addstr(pos[0], pos[1], ' ' * self.width)
+                self.win.addstr(pos[0], pos[1],
+                                trailingstr[ln * self.width:(ln + 1) * self.width])
+
+            pos = (pos[0] + 1, pos[1])
+
+            # redraw the remaining vlines
+            self.redraw_vlines(pos, self.vpos[0] + 1, len(self.text))
+
+        self.ppos = [backy, backx]
+        self.win.move(backy, backx)
+
+    def drawline(self, ln):
+        bg = self.lnbg[ln]
+        ed = min(len(self.text[bg[0]]) - self.text[bg[0]][bg[1]],  self.maxx)
+        self.win.addstr(ln, 0, self.text[bg[0]][bg[1]:ed])
 
     def do_command(self, ch):
         "Process a single editing command."
-        (maxy, maxx) = self._getmaxyx()
+        nlines = sum(len(x) for x in self.lnbg)
         self.lastcmd = ch
 
         if curses.ascii.isprint(ch):
-            if self.ln < maxy or self.cn < maxx:
+            if self.ppos[0] < self.maxy or self.ppos[1] < self.maxx:
                 self._insert_printable_char(ch)
-                if self.cn == 0:
-                    self.text[self.ln] = chr(ch) + self.text[self.ln]
-                else:
-                    self.text[self.ln]\
-                        = self.text[self.ln][:self.cn] + chr(ch) \
-                        + self.text[self.ln][self.cn:]
-                self.cn += 1
+            else:
+                curses.beep()
 
         elif ch == curses.ascii.SOH:  # ^a
-            self.cn = 0
-            self.win.move(self.ln, self.cn)
+            self.ppos = (self.ppos[0], 0)
+            self.vpos = (
+                self.vpos[0], int((self.vpos[1] / self.width) * self.width))
+            self.win.move(self.ppos[0], self.ppos[1])
 
         elif ch == curses.ascii.ENQ:  # ^e
-            self.cn = len(self.text[self.ln])
-            self.win.move(self.ln, self.cn)
 
-        elif ch in (curses.ascii.STX, curses.KEY_LEFT):
-            if self.cn > 0:
-                self.cn -= 1
-                self.win.move(self.ln, self.cn)
-            elif self.ln == 0:
+            if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
+                self.ppos = (self.ppos[0], self.maxx)
+                self.vpos = (self.vpos[0],
+                             int((self.vpos[1] / self.width + 1) * self.width - 1))
+            else:
+                self.ppos = (self.ppos[0],
+                             len(self.text[self.vpos[0]]) % self.width)
+                self.vpos = (self.vpos[0], len(self.text[self.vpos[0]]))
+
+            self.win.move(self.ppos[0], self.ppos[1])
+
+        elif ch in (curses.ascii.STX, curses.KEY_LEFT):  # <-
+            if self.ppos[1] > 0:
+                self.ppos = (self.ppos[0], self.ppos[1] - 1)
+                self.vpos = (self.vpos[0], self.vpos[1] - 1)
+            elif self.ppos[0] == 0:
                 curses.beep()
                 pass
-            else:
-                self.ln -= 1
-                self.cn = len(self.text[self.ln])
-                self.win.move(self.ln, self.cn)
-
-        elif ch == curses.ascii.EOT:  # ^d
-            if self.cn == len(self.text[self.ln]):
-                curses.beep()
-            else:
-                self.text[self.ln]\
-                    = self.text[self.ln][:self.cn]\
-                    + self.text[self.ln][self.cn + 1:]
-                self.win.delch()
-
-        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
-            if self.cn == 0:
-                if self.ln == 0:
-                    curses.beep()
+            else:  # move up one line
+                if self.vpos[1] == self.lnbg[self.vpos[0]][0]:
+                    ll = len(self.text[self.vpos[0] - 1])
+                    self.vpos = (self.vpos[0] - 1, ll)
+                    self.ppos = (self.ppos[0] - 1, ll % (self.width))
                 else:
-                    self.cn = len(self.text[self.ln - 1])
-                    self.text[self.ln - 1] += self.text[self.ln]
-                    self.text.pop(self.ln)
-                    self.nlines -= 1
-                    self.ln -= 1
-                    self.redraw_lines(self.ln, self.nlines)
-                    self.win.move(self.ln, self.cn)
-            else:
-                self.text[self.ln]\
-                    = self.text[self.ln][:self.cn - 1]\
-                    + self.text[self.ln][self.cn:]
-                self.win.move(self.ln, self.cn - 1)
-                self.win.delch()
-                self.cn -= 1
+                    self.vpos = (self.vpos[0], self.vpos[1] - 1)
+                    self.ppos = (self.ppos[0] - 1, self.maxx)
+            self.win.move(self.ppos[0], self.ppos[1])
 
-        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f
-            if self.cn < len(self.text[self.ln]):
-                self.cn += 1
-                self.win.move(self.ln, self.cn)
-            elif (self.ln == maxy) | (self.ln == self.nlines - 1):
+        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f ->
+            ll = len(self.text[self.vpos[0]])
+
+            if (self.ppos[1] < self.maxx) and (self.vpos[1] < ll):
+                self.ppos = (self.ppos[0], self.ppos[1] + 1)
+                self.vpos = (self.vpos[0], self.vpos[1] + 1)
+
+            elif self.ppos[0] == self.maxy or (self.ppos[0] == nlines - 1):
                 curses.beep()
                 pass
-            else:
-                self.cn = 0
-                self.ln += 1
-                self.win.move(self.ln, 0)
 
-        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
-            if maxy == 0:
-                curses.beep()
-                return 0
-            elif self.ln < maxy:
-                self.text.insert(self.ln + 1, self.text[self.ln][self.cn:])
-                self.text[self.ln] = self.text[self.ln][:self.cn]
-                self.ln += 1
-                self.cn = 0
-                self.nlines += 1
-                self.redraw_lines(self.ln - 1, self.nlines)
-                self.win.move(self.ln, 0)
-
-        elif ch == curses.ascii.VT:  # ^k
-            for c in range(self.cn, len(self.text[self.ln])):
-                self.win.addch(' ')
-            self.text[self.ln]\
-                = self.text[self.ln][:self.cn]
-            self.cn = len(self.text[self.ln])
-            self.win.move(self.ln, self.cn)
-            
-        elif ch == curses.ascii.FF:  # ^l
-            self.win.refresh()
+            else:  # move down one line
+                if self.vpos[1] == len(self.text[self.vpos[0]]):
+                    self.vpos = (self.vpos[0] + 1, 0)
+                    self.ppos = (self.ppos[0] + 1, 0)
+                else:
+                    self.vpos = (self.vpos[0], self.vpos[1] + 1)
+                    self.ppos = (self.ppos[0] + 1, 0)
+            self.win.move(self.ppos[0], self.ppos[1])
 
         elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n
-            if self.ln < (self.nlines - 1):
-                self.ln += 1
-                self.cn = min(self.cn, len(self.text[self.ln]))
-                self.win.move(self.ln, self.cn)
+            if self.ppos[0] < (nlines - 1):
+                # within the same vline
+                if self.vpos[1] / self.width \
+                   < len(self.text[self.vpos[0]]) / self.width:
+                    ll = len(self.text[self.vpos[0]])
+                    self.vpos = (
+                        self.vpos[0], min(self.vpos[1] + self.width, ll))
+                    self.ppos = (self.ppos[0] + 1,
+                                 min(self.ppos[1], ll % self.width))
+                # move to next vline
+                else:
+                    ll = len(self.text[self.vpos[0] + 1])
+                    self.vpos = (self.vpos[0] + 1,
+                                 min(self.vpos[1] % self.width, ll))
+                    self.ppos = (self.ppos[0] + 1, min(self.ppos[1], ll))
+                self.win.move(self.ppos[0], self.ppos[1])
             else:
                 curses.beep()
 
         elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
-            if self.ln > 0:
-                self.ln -= 1
-                self.cn = min(self.cn, len(self.text[self.ln]))
-                self.win.move(self.ln, self.cn)
+            if self.ppos[0] > 0:
+                # move to previous vline
+                if self.vpos[1] < self.width:
+                    ll = len(self.text[self.vpos[0] - 1])
+                    vpos1 = min(int((ll / self.width) * self.width) + self.vpos[1],
+                                ll)
+                    self.vpos = (self.vpos[0] - 1, vpos1)
+                    self.ppos = (self.ppos[0] - 1,
+                                 min(self.ppos[1], ll % self.width))
+                # within the same vline
+                else:
+                    self.vpos = (self.vpos[0], self.vpos[1] - self.width)
+                    self.ppos = (self.ppos[0] - 1, self.ppos[1])
+
+                self.win.move(self.ppos[0], self.ppos[1])
             else:
                 curses.beep()
+
+        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
+            if self.maxy == 0:  # no space
+                curses.beep()
+                return 0
+            elif self.ppos[0] < self.maxy:
+                # update texts
+                self.text.insert(
+                    self.vpos[0] + 1, self.text[self.vpos[0]][self.vpos[1]:])
+                self.text[self.vpos[0]] = self.text[
+                    self.vpos[0]][:self.vpos[1]]
+
+                # update the line counts
+                self.lnbg.insert(self.vpos[0] + 1, [])
+                self.lnbg[self.vpos[0]] \
+                    = range(0, len(self.text[self.vpos[0]]), self.maxx)
+                self.lnbg[self.vpos[0] + 1] \
+                    = range(0, len(self.text[self.vpos[0] + 1]), self.maxx)
+
+                if len(self.lnbg[self.vpos[0]]) == 0:
+                    self.lnbg[self.vpos[0]] = [0]
+                if len(self.lnbg[self.vpos[0] + 1]) == 0:
+                    self.lnbg[self.vpos[0] + 1] = [0]
+
+                # clear the right part of the pline
+                for c in range(self.ppos[1], self.width):
+                    self.win.addch(' ')
+
+                # move p- and v- cursors
+                self.ppos = (self.ppos[0] + 1, 0)
+                backy, backx = self.ppos
+                self.vpos = (self.vpos[0] + 1, 0)
+
+                # redraw the bottom lines
+                self.redraw_vlines(self.ppos, self.vpos[0],
+                                   len(self.text))
+
+                # move the cursor position back
+                self.ppos = (backy, backx)
+                self.win.move(self.ppos[0], self.ppos[1])
+
+        elif ch == curses.ascii.EOT:  # ^d
+            if (self.vpos[0] == len(self.text) - 1)\
+               and (self.vpos[1] == len(self.text[self.vpos[0]])):
+                curses.beep()
+            else:
+                backy, backx = self.ppos
+                self.delat(self.vpos)
+                self.ppos = (backy, backx)
+                self.win.move(self.ppos[0], self.ppos[1])
+
+        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
+            if (self.vpos[0] == 0) and (self.vpos[1] == 0):
+                curses.beep()
+            else:
+                # bs at the beginning of a vline
+                if self.vpos[1] == 0:
+                    ll = len(self.text[self.vpos[0] - 1])
+                    vpos = (self.vpos[0] - 1, len(self.text[self.vpos[0] - 1]))
+                    ppos = (self.ppos[0] - 1, ll % self.width)
+                else:
+                    vpos = (self.vpos[0], self.vpos[1] - 1)
+                    if self.ppos[1] == 0:
+                        ppos = (self.ppos[0] - 1, self.maxx)
+                    else:
+                        ppos = (self.ppos[0], self.ppos[1] - 1)
+
+                self.delat(vpos)
+
+                self.ppos = ppos
+                self.vpos = vpos
+                self.win.move(self.ppos[0], self.ppos[1])
+
+            # import pdb
+            # curses.endwin()
+            # pdb.set_trace()
+
+        elif ch == curses.ascii.VT:  # ^k
+
+            backy, backx = self.ppos
+            # update text
+            self.text[self.vpos[0]]\
+                = self.text[self.vpos[0]][:self.vpos[1]]
+
+            # update line count
+            self.lnbg[self.vpos[0]]\
+                = range(0, len(self.text[self.vpos[0]]), self.width)
+            if len(self.lnbg[self.vpos[0]]) == 0:
+                self.lnbg[self.vpos[0]] = [0]
+
+            # redraw the bottom lines
+            pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
+
+            self.redraw_vlines(pos, self.vpos[0],
+                               len(self.text))
+
+            # set the cursor back
+            self.ppos = (backy, backx)
+            self.win.move(self.ppos[0], self.ppos[1])
+
+        elif ch == curses.ascii.FF:  # ^l
+            self.win.refresh()
 
         elif ch == curses.ascii.BEL:  # ^g
             return 0
 
         return 1
 
-    def redraw_lines(self, stl, edl):
-        "Redraw lines from stl to edl"
+    def draw_vline(self, pos, ln):
+        "Draw a vline."
 
-        for l in range(stl, edl):
-            self.win.deleteln()
+        for li in range(0, len(self.text[ln]), self.width):
+            self.win.addstr(pos[0], pos[1],
+                            self.text[ln][li:li + self.width])
+            pos = (pos[0] + 1, pos[1])
 
-        for l in range(stl, edl):
-            self.win.addstr(l, 0, self.text[l])
+        if len(self.text[ln]) == 0:
+            pos = (pos[0] + 1, pos[1])
+
+        return pos
+
+    def redraw_vlines(self, pos, stl, edl):
+        "Redraw vlines from stl to edl at position pos"
+
+        # clear the redrawn part
+        for l in range(pos[0], self.maxy):
+            self.win.addstr(l, 0, ' ' * (self.maxx + 1))
+
+        # now draw each line
+        for li in range(stl, edl):
+            pos = self.draw_vline(pos, li)
 
         return
+
+    def delat(self, pos):
+        "Delete chracter at position pos"
+
+        # del within a line
+        if pos[1] < len(self.text[pos[0]]):
+            self.text[pos[0]]\
+                = self.text[pos[0]][:pos[1]]\
+                + self.text[pos[0]][pos[1] + 1:]
+            self.lnbg[pos[0]] = range(0, len(self.text[pos[0]]), self.width)
+        # del at the end of a line
+        else:
+            self.text[pos[0]]\
+                += self.text[pos[0] + 1]
+            self.text.pop(pos[0] + 1)
+            self.lnbg[pos[0]] = range(0, len(self.text[pos[0]]), self.width)
+            self.lnbg.pop(pos[0] + 1)
+
+        if len(self.lnbg[pos[0]]) == 0:
+            self.lnbg[pos[0]] = [0]
+
+        nlines = sum(len(x) for x in self.lnbg[:pos[0]])
+        pos = (nlines, 0)
+        self.redraw_vlines(pos, pos[0], len(self.text))
 
     def edit(self, validate=None):
         "Edit in the widget window and collect the results."
@@ -251,13 +387,14 @@ class Textbox:
 
             (backy, backx) = self.win.getyx()
             maxy, maxx = self._getmaxyx()
-            self.win.addstr(maxy - 2, maxx - 20, '%d %d %d'
-                            % (ch, self.ln, self.cn))
+            self.win.addstr(maxy, 0, ' ' * maxx)
+            self.win.addstr(maxy, 0, '%d %d %d %d %d'
+                            % (ch, self.vpos[0], self.vpos[1], self.ppos[0], self.ppos[1]))
+            # self.win.addstr(maxy, 0, str(self.lnbg))
             self.win.refresh()
-
             self.win.move(backy, backx)
 
-        return self.text
+        return self.text, self.lnbg
 
 
 class EscapePressed(Exception):
@@ -285,6 +422,7 @@ if __name__ == '__main__':
         ymax, xmax = stdscr.getmaxyx()
 
         ncols, nlines = xmax - 5, ymax - 3
+        ncols, nlines = 20, 10
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
@@ -292,11 +430,12 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = Textbox(win, stdscr).edit(validate=validate)
+            out, lnbg = TextEditBox(win, stdscr).edit(validate=validate)
         except EscapePressed:
             out = None
 
-        return out
+        return out, lnbg
 
-    text = curses.wrapper(test_editbox)
+    text, lnbg = curses.wrapper(test_editbox)
     print 'Contents of text box:', repr(text)
+    print lnbg
