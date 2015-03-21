@@ -6,7 +6,7 @@ setup(
     name='texteditbox',
     version=__version__,
     description='Simple textbox editing widget with Emacs-like keybindings',
-    # long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     url='https://github.com/yskmt/texteditbox',
     author='Yusuke Sakamoto',
     author_email='yus.sakamoto@gmail.com',

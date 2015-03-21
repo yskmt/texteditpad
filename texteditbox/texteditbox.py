@@ -1,5 +1,10 @@
 """Simple textbox editing widget with Emacs-like keybindings."""
 
+# import pdb
+# curses.endwin()
+# pdb.set_trace()
+
+
 import curses
 import curses.ascii
 
@@ -289,31 +294,34 @@ class TextEditBox:
                 self.vpos = vpos
                 self.win.move(self.ppos[0], self.ppos[1])
 
-            # import pdb
-            # curses.endwin()
-            # pdb.set_trace()
-
         elif ch == curses.ascii.VT:  # ^k
 
             backy, backx = self.ppos
-            # update text
-            self.text[self.vpos[0]]\
-                = self.text[self.vpos[0]][:self.vpos[1]]
+            if len(self.text[self.vpos[0]]) == 0 and self.vpos[0] > 0:
+                # del at the beginning of a vline
+                backy, backx = self.ppos
+                self.delat(self.vpos)
+                self.ppos = (backy, backx)
+            else:
+                # update text
+                self.text[self.vpos[0]]\
+                    = self.text[self.vpos[0]][:self.vpos[1]]
 
-            # update line count
-            self.lnbg[self.vpos[0]]\
-                = range(0, len(self.text[self.vpos[0]]), self.width)
-            if len(self.lnbg[self.vpos[0]]) == 0:
-                self.lnbg[self.vpos[0]] = [0]
+                # update line count
+                self.lnbg[self.vpos[0]]\
+                    = range(0, len(self.text[self.vpos[0]]), self.width)
+                if len(self.lnbg[self.vpos[0]]) == 0:
+                    self.lnbg[self.vpos[0]] = [0]
 
-            # redraw the bottom lines
-            pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
+                # redraw the bottom lines
+                pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
 
-            self.redraw_vlines(pos, self.vpos[0],
-                               len(self.text))
+                self.redraw_vlines(pos, self.vpos[0],
+                                   len(self.text))
 
-            # set the cursor back
-            self.ppos = (backy, backx)
+                # set the cursor back
+                self.ppos = (backy, backx)
+
             self.win.move(self.ppos[0], self.ppos[1])
 
         elif ch == curses.ascii.FF:  # ^l
