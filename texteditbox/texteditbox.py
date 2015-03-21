@@ -431,7 +431,7 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = TextEditBox(win, stdscr).edit(validate=validate)
+            out = TextEditBox(win).edit(validate=validate)
         except EscapePressed:
             out = None
 

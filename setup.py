@@ -1,18 +1,19 @@
 from setuptools import setup
 
-__version__ = '0.1'
+__version__ = '0.1c'
 
 setup(
     name='texteditbox',
     version=__version__,
     description='Simple textbox editing widget with Emacs-like keybindings',
-    long_description=open('README.md').read(),
+    # long_description=open('README.md').read(),
     url='https://github.com/yskmt/texteditbox',
     author='Yusuke Sakamoto',
     author_email='yus.sakamoto@gmail.com',
     license='MIT',
+    packages=['texteditbox'],
     keywords='curses terminal text edit box',
-    entry_points={'console_scripts': ['texteditbox = src.texteditbox:main']},
+    entry_points={'console_scripts': ['texteditbox=src.texteditbox:main']},
     classifiers=[
         'Intended Audience :: End Users/Desktop',
         'Environment :: Console :: Curses',
