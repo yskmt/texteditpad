@@ -9,7 +9,7 @@ replace ``curses.textpad`` routine.
 Usage
 --------
 
-:python:
+```python
 
   import curses
   import texteditpad
@@ -26,7 +26,7 @@ Usage
 
   text = curses.wrapper(test_editbox)
   print 'Contents of text box:', repr(text)
-
+```
 
 --------
 Commands
@@ -63,4 +63,3 @@ Supports the following Emacs-like key bindings:
 |Ctrl-P |Cursor up; move up one line.                                |
 +-------+------------------------------------------------------------+
 
-    
