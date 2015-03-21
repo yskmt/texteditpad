@@ -5,9 +5,6 @@ import curses.ascii
 import copy
 
 
-
-
-
 def rectangle(win, uly, ulx, lry, lrx):
     """Draw a rectangle with corners at the provided upper-left
     and lower-right coordinates.
@@ -278,16 +275,33 @@ class TextEditBox:
                 # move the cursor position back
                 self.ppos = (backy, backx)
                 self.win.move(self.ppos[0], self.ppos[1])
-
                 
-        # elif ch == curses.ascii.EOT:  # ^d
-        #     if self.vpos[1] == len(self.text[self.vpos[0]]):
-        #         curses.beep()
-        #     else:
-        #         self.text[self.vpos[0]]\
-        #             = self.text[self.vpos[0]][:self.vpos[1]]\
-        #             + self.text[self.vpos[0]][self.vpos[1] + 1:]
-        #         self.win.delch()
+        elif ch == curses.ascii.EOT:  # ^d
+            if (self.vpos[0] == len(self.text)-1)\
+               and (self.vpos[1] == len(self.text[self.vpos[0]])):
+                curses.beep()
+            else:
+                backy, backx = self.ppos
+
+                # del within a line
+                if self.vpos[1] < len(self.text[self.vpos[0]]):
+                    self.text[self.vpos[0]]\
+                        = self.text[self.vpos[0]][:self.vpos[1]]\
+                        + self.text[self.vpos[0]][self.vpos[1] + 1:]
+                # del at the end of a line
+                else:
+                    self.text[self.vpos[0]]\
+                        += self.text[self.vpos[0]+1]
+                    self.text.pop(self.vpos[0]+1)
+
+                nlines = sum(len(x) for x in self.lnbg[:self.vpos[0]])
+                pos = (nlines, 0)
+                self.redraw_vlines(pos, self.vpos[0], len(self.text))
+                    
+                # move the cursor position back
+                self.ppos = (backy, backx)
+                self.win.move(self.ppos[0], self.ppos[1])
+
 
         elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
             if self.ppos[1] == 0:
