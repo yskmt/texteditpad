@@ -5,6 +5,9 @@ import curses.ascii
 import copy
 
 
+
+
+
 def rectangle(win, uly, ulx, lry, lrx):
     """Draw a rectangle with corners at the provided upper-left
     and lower-right coordinates.
@@ -75,7 +78,8 @@ class TextEditBox:
 
     def _insert_printable_char(self, ch):
         (maxy, maxx) = self._getmaxyx()
-                
+        (height, width) = (maxy+1, maxx+1)
+        
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
 
         self.text[self.vpos[0]]\
@@ -96,7 +100,6 @@ class TextEditBox:
         (backy, backx) = self.win.getyx()
        
         nspaces = maxx - (self.ppos[1])
-
         # right space big enough to fit the rest of line
         if nspaces > len(trailingstr):
             self.win.addstr(trailingstr)
@@ -104,16 +107,28 @@ class TextEditBox:
         else:
             self.win.addstr(trailingstr[:nspaces])
             trailingstr = trailingstr[nspaces:]
+            pos = (self.ppos[0], 0)
             
-            for ln in range(0, nspaces+1, maxx):
-                self.ppos = (self.ppos[0]+1, 0)
-                self.win.addstr(self.ppos[0], self.ppos[1],
-                                trailingstr[ln:ln+maxx])
+            # draw the rest of the vline
+            for ln in range(0, len(trailingstr)/width+1):
+                pos = (pos[0]+1, pos[1])
+                self.win.addstr(pos[0], pos[1], ' '*width)
+                self.win.addstr(pos[0], pos[1],
+                                trailingstr[ln*width:(ln+1)*width])
+                
+            pos = (pos[0]+1, pos[1])
+                
+            # redraw the remaining vlines
 
             # redraw the rest of vlines
-            pos = self.ppos
-            for li in range(self.vpos[0]+1, len(self.text)):
-                pos = self.draw_vline(pos, li)
+            # pos = (self.ppos[0]+1, 0)
+            # curses.endwin()
+            # import pdb
+            # pdb.set_trace()
+
+            self.redraw_vlines(pos, self.vpos[0]+1, len(self.text))
+            # for li in range(self.vpos[0]+1, len(self.text)):
+                # pos = self.draw_vline(pos, maxy+1, maxx+1, li)
         
         self.ppos = [backy, backx]
         self.win.move(backy, backx)
@@ -166,7 +181,7 @@ class TextEditBox:
                 if self.vpos[1] == self.lnbg[self.vpos[0]][0]:
                     ll = len(self.text[self.vpos[0]-1])
                     self.vpos = (self.vpos[0]-1, ll)
-                    self.ppos = (self.ppos[0]-1, ll%(maxx+1))
+                    self.ppos = (self.ppos[0]-1, ll%(width))
                 else:
                     self.vpos = (self.vpos[0], self.vpos[1]-1)
                     self.ppos = (self.ppos[0]-1, maxx)
@@ -195,7 +210,7 @@ class TextEditBox:
         elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n            
             if self.ppos[0] < (nlines-1):
                 # within the same vline
-                if self.vpos[0] < max(self.lnbg[self.vpos[0]]):
+                if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
                     ll = len(self.text[self.vpos[0]])
                     self.vpos = (self.vpos[0], min(self.vpos[1]+width, ll))
                     self.ppos = (self.ppos[0]+1, min(self.ppos[1], ll%width))
@@ -235,15 +250,18 @@ class TextEditBox:
                     self.vpos[0] + 1, self.text[self.vpos[0]][self.vpos[1]:])
                 self.text[self.vpos[0]] = self.text[self.vpos[0]][:self.vpos[1]]
 
-                # update the line-beginning counts
+                # update the line counts
                 self.lnbg.insert(self.vpos[0]+1, [])
                 self.lnbg[self.vpos[0]] \
                     = range(0, len(self.text[self.vpos[0]]), maxx)
                 self.lnbg[self.vpos[0]+1] \
                     = range(0, len(self.text[self.vpos[0]+1]), maxx)
-                if len(self.lnbg[self.vpos[0]+1])==0:
+
+                if len(self.lnbg[self.vpos[0]]) == 0:
+                    self.lnbg[self.vpos[0]] = [0]
+                if len(self.lnbg[self.vpos[0]+1]) == 0:
                     self.lnbg[self.vpos[0]+1] = [0]
-                
+                    
                 # clear the right part of the pline
                 for c in range(self.ppos[1], width):
                     self.win.addch(' ')
@@ -379,7 +397,7 @@ class TextEditBox:
             self.win.refresh()
             self.win.move(backy, backx)
 
-        return self.text
+        return self.text, self.lnbg
 
 
 class EscapePressed(Exception):
@@ -407,7 +425,7 @@ if __name__ == '__main__':
         ymax, xmax = stdscr.getmaxyx()
 
         ncols, nlines = xmax - 5, ymax - 3
-        ncols, nlines = 20, 12
+        ncols, nlines = 20,10
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
@@ -415,11 +433,12 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = TextEditBox(win, stdscr).edit(validate=validate)
+            out, lnbg = TextEditBox(win, stdscr).edit(validate=validate)
         except EscapePressed:
             out = None
 
-        return out
+        return out, lnbg
 
-    text = curses.wrapper(test_editbox)
+    text, lnbg = curses.wrapper(test_editbox)
     print 'Contents of text box:', repr(text)
+    print lnbg
