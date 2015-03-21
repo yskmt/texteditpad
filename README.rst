@@ -1,12 +1,13 @@
-===
+===========
 texteditbox
-===
---------
-Simple textbox editing widget with Emacs-like keybindings.
--------- 
+===========
 
+Simple textbox editing widget with Emacs-like keybindings.
+
+
+--------
 Commands
-========
+--------
 Editing widget using the interior of a window object.
 Supports the following Emacs-like key bindings:
 
