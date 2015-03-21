@@ -53,6 +53,9 @@ class TextEditBox:
         self.lnbg = [[0]]
         self.ppos = (0, 0)  # physical position
         self.vpos = (0, 0)  # virtual position
+
+        (self.maxy, self.maxx) = self._getmaxyx()
+        (self.height, self.width) = (self.maxy+1, self.maxx+1)
         win.keypad(1)
 
     def _getmaxyx(self):
@@ -79,12 +82,14 @@ class TextEditBox:
         
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
 
+        # update text
         self.text[self.vpos[0]]\
             = self.text[self.vpos[0]][:self.vpos[1]] + chr(ch) \
             + trailingstr
         self.vpos = (self.vpos[0], self.vpos[1] + 1)
-        
-        self.lnbg[self.vpos[0]] = range(0, len(self.text[self.vpos[0]]), maxx)
+
+        # update line count
+        self.lnbg[self.vpos[0]] = range(0, len(self.text[self.vpos[0]]), width)
         
         self.ppos = self.win.getyx()
         (maxy, maxx) = self._getmaxyx()
@@ -116,20 +121,10 @@ class TextEditBox:
             pos = (pos[0]+1, pos[1])
                 
             # redraw the remaining vlines
-
-            # redraw the rest of vlines
-            # pos = (self.ppos[0]+1, 0)
-            # curses.endwin()
-            # import pdb
-            # pdb.set_trace()
-
             self.redraw_vlines(pos, self.vpos[0]+1, len(self.text))
-            # for li in range(self.vpos[0]+1, len(self.text)):
-                # pos = self.draw_vline(pos, maxy+1, maxx+1, li)
         
         self.ppos = [backy, backx]
         self.win.move(backy, backx)
-
 
     def drawline(self, ln):
         (maxy, maxx) = self._getmaxyx()
@@ -207,7 +202,7 @@ class TextEditBox:
         elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n            
             if self.ppos[0] < (nlines-1):
                 # within the same vline
-                if self.vpos[1] < max(self.text[self.vpos[0]]):
+                if self.vpos[1]/width < len(self.text[self.vpos[0]])/width:
                     ll = len(self.text[self.vpos[0]])
                     self.vpos = (self.vpos[0], min(self.vpos[1]+width, ll))
                     self.ppos = (self.ppos[0]+1, min(self.ppos[1], ll%width))
@@ -275,7 +270,7 @@ class TextEditBox:
                 # move the cursor position back
                 self.ppos = (backy, backx)
                 self.win.move(self.ppos[0], self.ppos[1])
-                
+
         elif ch == curses.ascii.EOT:  # ^d
             if (self.vpos[0] == len(self.text)-1)\
                and (self.vpos[1] == len(self.text[self.vpos[0]])):
@@ -313,13 +308,15 @@ class TextEditBox:
             # pdb.set_trace()
                 
         elif ch == curses.ascii.VT:  # ^k
-
             
             backy, backx = self.ppos
+            # update text
             self.text[self.vpos[0]]\
                 = self.text[self.vpos[0]][:self.vpos[1]]
+
+            # update line count
             self.lnbg[self.vpos[0]]\
-                = range(0, len(self.text[self.vpos[0]]), maxx)
+                = range(0, len(self.text[self.vpos[0]]), self.width)
             if len(self.lnbg[self.vpos[0]]) == 0:
                 self.lnbg[self.vpos[0]] = [0]
             
@@ -329,15 +326,9 @@ class TextEditBox:
             self.redraw_vlines(pos, self.vpos[0],
                                len(self.text))
 
+            # set the cursor back
             self.ppos = (backy, backx)
             self.win.move(self.ppos[0], self.ppos[1])
- 
-            
-            # for c in range(self.ppos[1], width):
-            #     self.win.addch(' ')
-            
-            # self.ppos[1] = len(self.text[self.ppos[0]])
-            # self.win.move(self.ppos[0], self.ppos[1])
 
         elif ch == curses.ascii.FF:  # ^l
             self.win.refresh()
@@ -384,16 +375,21 @@ class TextEditBox:
             self.text[pos[0]]\
                 = self.text[pos[0]][:pos[1]]\
                 + self.text[pos[0]][pos[1] + 1:]
+            self.lnbg[pos[0]] = range(0, len(self.text[pos[0]]), self.width)
         # del at the end of a line
         else:
             self.text[pos[0]]\
                 += self.text[pos[0]+1]
             self.text.pop(pos[0]+1)
-
+            self.lnbg[pos[0]] = range(0, len(self.text[pos[0]]), self.width)
+            self.lnbg.pop(pos[0]+1)
+            
+        if len(self.lnbg[pos[0]]) == 0:
+            self.lnbg[pos[0]] = [0]
+            
         nlines = sum(len(x) for x in self.lnbg[:pos[0]])
         pos = (nlines, 0)
         self.redraw_vlines(pos, pos[0], len(self.text))
-
     
     def edit(self, validate=None):
         "Edit in the widget window and collect the results."
