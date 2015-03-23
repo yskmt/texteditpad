@@ -1,9 +1,5 @@
 """Simple textbox editing widget with Emacs-like keybindings."""
 
-# import pdb
-# curses.endwin()
-# pdb.set_trace()
-
 
 import curses
 import curses.ascii
@@ -445,7 +441,6 @@ class TextEditBox:
         pos1 = self.vpos[1] % self.width
         self.ppos = (pos0, pos1)
         self.win.move(*self.ppos)
-
         
     def edit(self, validate=None, debug_mode=False):
         "Edit in the widget window and collect the results."
@@ -481,9 +476,6 @@ def validate(ch):
 
     if ch == curses.ascii.ESC:
         raise EscapePressed
-
-    # if ch == curses.KEY_RESIZE:
-    #     raise EscapePressed
 
     # Fix backspace for iterm
     if ch == curses.ascii.DEL:

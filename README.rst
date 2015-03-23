@@ -5,6 +5,9 @@ Simple textbox editing widget with Emacs-like keybindings. Provide
 richer features than ``curses.textpad`` routine and intended to replace
 it.
 
+pypi repository:
+https://pypi.python.org/pypi/texteditpad
+
 Usage
 =====
 
