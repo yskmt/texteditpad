@@ -1,19 +1,19 @@
 from setuptools import setup
 
-__version__ = '0.1c'
+__version__ = '0.23'
 
 setup(
-    name='texteditbox',
+    name='texteditpad',
+    packages=['texteditpad'],
     version=__version__,
     description='Simple textbox editing widget with Emacs-like keybindings',
     long_description=open('README.rst').read(),
-    url='https://github.com/yskmt/texteditbox',
+    url='https://github.com/yskmt/texteditpad',
     author='Yusuke Sakamoto',
     author_email='yus.sakamoto@gmail.com',
     license='MIT',
-    packages=['texteditbox'],
-    keywords='curses terminal text edit box',
-    entry_points={'console_scripts': ['texteditbox=src.texteditbox:main']},
+    keywords='curses terminal text edit box pad',
+    entry_points={'console_scripts': ['texteditpad=src.texteditbox:main']},
     classifiers=[
         'Intended Audience :: End Users/Desktop',
         'Environment :: Console :: Curses',
@@ -24,5 +24,6 @@ setup(
         'Topic :: Terminals',
         'Topic :: Utilities',
         'Topic :: Text Editors'
-    ]
+    ],
 )
+
