@@ -1,10 +1,10 @@
 from setuptools import setup
 
-__version__ = '0.23'
+__version__ = '0.26'
 
 setup(
     name='texteditpad',
-    packages=['texteditpad'],
+    py_modules=['texteditpad'],
     version=__version__,
     description='Simple textbox editing widget with Emacs-like keybindings',
     long_description=open('README.rst').read(),
@@ -13,7 +13,6 @@ setup(
     author_email='yus.sakamoto@gmail.com',
     license='MIT',
     keywords='curses terminal text edit box pad',
-    entry_points={'console_scripts': ['texteditpad=src.texteditbox:main']},
     classifiers=[
         'Intended Audience :: End Users/Desktop',
         'Environment :: Console :: Curses',
@@ -26,4 +25,3 @@ setup(
         'Topic :: Text Editors'
     ],
 )
-
