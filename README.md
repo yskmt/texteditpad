@@ -1,13 +1,11 @@
-===========
 texteditbox
 ===========
 
-Simple textbox editing widget with Emacs-like keybindings, intended to
-replace ``curses.textpad`` routine.
+Simple textbox editing widget with Emacs-like keybindings. Provide
+richer features than ``curses.textpad`` routine and intended to
+replace it.
 
---------
-Usage
---------
+# Usage
 
 ```python
 
@@ -27,9 +25,8 @@ text = curses.wrapper(test_editbox)
 print 'Contents of text box:', repr(text)
 ```
 
---------
-Commands
---------
+# Commands
+
 Editing widget using the interior of a window object.
 Supports the following Emacs-like key bindings:
 
