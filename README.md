@@ -1,4 +1,4 @@
-texteditbox
+texteditpad
 ===========
 
 Simple textbox editing widget with Emacs-like keybindings. Provide
