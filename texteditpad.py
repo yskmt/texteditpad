@@ -469,7 +469,7 @@ class TextEditBox:
                 self.win.refresh()
                 self.win.move(backy, backx)
 
-        return '\n'.join(self.text), self.lnbg
+        return '\n'.join(self.text)
 
 
 class EscapePressed(Exception):
@@ -509,13 +509,13 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out, lnbg = TextEditBox(win, stdscr=stdscr, text=testtext)\
+            out = TextEditBox(win, stdscr=stdscr, text=testtext)\
                 .edit(validate=validate)
         except EscapePressed:
             out = None
 
-        return out, lnbg
+        return out
 
-    text, lnbg = curses.wrapper(test_editbox)
-    print 'Contents of text box:\n\n', text
-    print lnbg
+    text = curses.wrapper(test_editbox)
+    print 'Contents of text box:'
+    print text
