@@ -49,9 +49,12 @@ class TextEditBox:
     KEY_BACKSPACE = Ctrl-h
     """
 
-    def __init__(self, win, insert_mode=True):
+    def __init__(self, win, stdscr=0, insert_mode=True, resize_mode=False):
+        
         self.win = win
+        self.stdscr = stdscr
         self.insert_mode = insert_mode
+        self.resize_mode = resize_mode
         self.lastcmd = None
         self.text = ['']
         self.lnbg = [[0]]
@@ -134,6 +137,10 @@ class TextEditBox:
             else:
                 curses.beep()
 
+        elif ch == curses.KEY_RESIZE:
+            if self.resize_mode:
+                self.refresh()
+            
         elif ch == curses.ascii.SOH:  # ^a
             self.ppos = (self.ppos[0], 0)
             self.vpos = (
@@ -279,7 +286,7 @@ class TextEditBox:
                 self.clear_right()
 
         elif ch == curses.ascii.FF:  # ^l
-            self.win.refresh()
+            self.refresh()
 
         elif ch == curses.ascii.BEL:  # ^g
             return 0
@@ -299,16 +306,16 @@ class TextEditBox:
 
         return pos
 
-    def redraw_vlines(self, pos, stl, edl):
-        "Redraw vlines from stl to edl at position pos"
+    def redraw_vlines(self, ppos, stl, edl):
+        "Redraw vlines from stl to edl at position ppos"
 
         # clear the redrawn part
-        for l in range(pos[0], self.maxy):
-            self.win.addstr(l, 0, ' ' * (self.maxx + 1))
+        for l in range(ppos[0], self.maxy):
+            self.clear_line(l)
 
         # now draw each line
         for li in range(stl, edl):
-            pos = self.draw_vline(pos, li)
+            ppos = self.draw_vline(ppos, li)
 
         return
 
@@ -404,6 +411,38 @@ class TextEditBox:
         # move the cursor position back
         self.ppos = (backy, backx)
         self.win.move(self.ppos[0], self.ppos[1])
+
+    def refresh(self):
+
+        # resize/move window to fit to the new screen size
+        self.stdscr.clear()
+        self.stdscr.refresh()
+        ymax, xmax = self.stdscr.getmaxyx()
+        ncols, nlines = xmax-5, ymax-3
+        self.win.resize(nlines, ncols)
+        uly, ulx = 2,2
+        self.win.mvwin(uly, ulx)
+        self.win.refresh()
+        
+        # recalcualte the line count
+        (self.maxy, self.maxx) = self._getmaxyx()
+        (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
+        self.lnbg = [[]]*len(self.text)
+        for i in range(len(self.text)):
+            self.lnbg[i] = range(0, len(self.text[i]), self.width)
+            if len(self.lnbg[i]) == 0:
+                self.lnbg[i] = [0]
+
+        # redraw the texteditbox
+        self.redraw_vlines((0,0), 0, len(self.text))
+
+        # replace the cursor
+        pos0 = sum(len(x) for x in self.lnbg[:self.vpos[0]]) \
+               + self.vpos[1]/self.width
+        pos1 = self.vpos[1] % self.width
+        self.ppos = (pos0, pos1)
+        self.win.move(*self.ppos)
+
         
     def edit(self, validate=None, debug_mode=False):
         "Edit in the widget window and collect the results."
@@ -427,7 +466,7 @@ class TextEditBox:
                 self.win.refresh()
                 self.win.move(backy, backx)
 
-        return '\n'.join(self.text)
+        return '\n'.join(self.text), self.lnbg
 
 
 class EscapePressed(Exception):
@@ -440,8 +479,8 @@ def validate(ch):
     if ch == curses.ascii.ESC:
         raise EscapePressed
 
-    if ch == curses.KEY_RESIZE:
-        raise EscapePressed
+    # if ch == curses.KEY_RESIZE:
+    #     raise EscapePressed
 
     # Fix backspace for iterm
     if ch == curses.ascii.DEL:
@@ -456,8 +495,8 @@ if __name__ == '__main__':
 
         ymax, xmax = stdscr.getmaxyx()
 
-        # ncols, nlines = xmax - 5, ymax - 3
-        ncols, nlines = 8, 5
+        ncols, nlines = xmax - 5, ymax - 3
+        # ncols, nlines = 8, 5
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
@@ -465,11 +504,12 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = TextEditBox(win).edit(validate=validate)
+            out, lnbg = TextEditBox(win, stdscr=stdscr).edit(validate=validate)
         except EscapePressed:
             out = None
 
-        return out
+        return out, lnbg
 
-    text = curses.wrapper(test_editbox)
+    text, lnbg = curses.wrapper(test_editbox)
     print 'Contents of text box:\n\n', text
+    print lnbg
