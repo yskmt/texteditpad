@@ -49,21 +49,24 @@ class TextEditBox:
     KEY_BACKSPACE = Ctrl-h
     """
 
-    def __init__(self, win, stdscr=0, insert_mode=True, resize_mode=False):
+    def __init__(self, win, stdscr=0, text='',
+                 insert_mode=True, resize_mode=False):
         
         self.win = win
         self.stdscr = stdscr
         self.insert_mode = insert_mode
         self.resize_mode = resize_mode
         self.lastcmd = None
-        self.text = ['']
+        self.text = text.split('\n')
         self.lnbg = [[0]]
         self.ppos = (0, 0)  # physical position
         self.vpos = (0, 0)  # virtual position
         (self.maxy, self.maxx) = self._getmaxyx()
         (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
-        win.keypad(1)
 
+        self.refresh()
+        win.keypad(1)
+        
     def _getmaxyx(self):
         (maxy, maxx) = self.win.getmaxyx()
         return maxy - 1, maxx - 1
@@ -138,8 +141,7 @@ class TextEditBox:
                 curses.beep()
 
         elif ch == curses.KEY_RESIZE:
-            if self.resize_mode:
-                self.refresh()
+            self.refresh()
             
         elif ch == curses.ascii.SOH:  # ^a
             self.ppos = (self.ppos[0], 0)
@@ -414,16 +416,17 @@ class TextEditBox:
 
     def refresh(self):
 
-        # resize/move window to fit to the new screen size
-        self.stdscr.clear()
-        self.stdscr.refresh()
-        ymax, xmax = self.stdscr.getmaxyx()
-        ncols, nlines = xmax-5, ymax-3
-        self.win.resize(nlines, ncols)
-        uly, ulx = 2,2
-        self.win.mvwin(uly, ulx)
-        self.win.refresh()
-        
+        if self.resize_mode:
+            # resize/move window to fit to the new screen size
+            self.stdscr.clear()
+            self.stdscr.refresh()
+            ymax, xmax = self.stdscr.getmaxyx()
+            ncols, nlines = xmax-5, ymax-3
+            self.win.resize(nlines, ncols)
+            uly, ulx = 2,2
+            self.win.mvwin(uly, ulx)
+            self.win.refresh()
+
         # recalcualte the line count
         (self.maxy, self.maxx) = self._getmaxyx()
         (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
@@ -491,10 +494,12 @@ def validate(ch):
 
 if __name__ == '__main__':
     def test_editbox(stdscr):
+
+        with open("test.txt", "r") as testfile:
+            testtext=testfile.read()
+        
         curses.use_default_colors()
-
         ymax, xmax = stdscr.getmaxyx()
-
         ncols, nlines = xmax - 5, ymax - 3
         # ncols, nlines = 8, 5
         uly, ulx = 2, 2
@@ -504,7 +509,8 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out, lnbg = TextEditBox(win, stdscr=stdscr).edit(validate=validate)
+            out, lnbg = TextEditBox(win, stdscr=stdscr, text=testtext)\
+                .edit(validate=validate)
         except EscapePressed:
             out = None
 
