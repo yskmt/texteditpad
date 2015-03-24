@@ -85,10 +85,9 @@ class Textbox:
         self.lnbg[self.vpos[0]] = range(0, len(self.text[self.vpos[0]]),
                                         self.width)
         self.nlines = sum(len(x) for x in self.lnbg)
-
-        (backy, backx) = self.win.getyx()
         
         # redraw!
+        (backy, backx) = self.win.getyx()
         self.redraw_vlines(self.vpos, self.ppos)
 
         # update cursor position
@@ -98,39 +97,6 @@ class Textbox:
             self.ppos = (backy, backx+1)
         self.vpos = (self.vpos[0], self.vpos[1]+1)
         self.win.move(*self.ppos)
-
-        
-        # # draw the trailing part
-        # try:
-        #     self.win.addch(ch)
-        # except curses.error:
-        #     pass
-        # (backy, backx) = self.win.getyx()
-
-        # nspaces = self.maxx - (self.ppos[1])
-        # # right space big enough to fit the rest of line
-        # if nspaces > len(trailingstr):
-        #     self.win.addstr(trailingstr)
-        # # if not, go on to next pline
-        # else:
-        #     self.win.addstr(trailingstr[:nspaces])
-        #     trailingstr = trailingstr[nspaces:]
-        #     pos = (self.ppos[0], 0)
-
-        #     # draw the rest of the vline
-        #     for ln in range(0, len(trailingstr) / self.width + 1):
-        #         pos = (pos[0] + 1, pos[1])
-        #         self.clear_line(pos[0])
-        #         self.win.addstr(pos[0], pos[1],
-        #                         trailingstr[ln * self.width:(ln + 1) * self.width])
-
-        #     pos = (pos[0] + 1, pos[1])
-
-        #     # redraw the remaining vlines
-        #     self.redraw_vlines(pos, self.vpos[0] + 1, len(self.text))
-
-        # self.ppos = [backy, backx]
-        # self.win.move(backy, backx)
 
     def drawline(self, ln):
         bg = self.lnbg[ln]
@@ -153,24 +119,11 @@ class Textbox:
             self.refresh()
             
         elif ch == curses.ascii.SOH:  # ^a
-            self.ppos = (self.ppos[0], 0)
-            self.vpos = (
-                self.vpos[0], int((self.vpos[1] / self.width) * self.width))
-            self.win.move(self.ppos[0], self.ppos[1])
+            self.move_front()
 
         elif ch == curses.ascii.ENQ:  # ^e
-
-            if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
-                self.ppos = (self.ppos[0], self.maxx)
-                self.vpos = (self.vpos[0],
-                             int((self.vpos[1] / self.width + 1) * self.width - 1))
-            else:
-                self.ppos = (self.ppos[0],
-                             len(self.text[self.vpos[0]]) % self.width)
-                self.vpos = (self.vpos[0], len(self.text[self.vpos[0]]))
-
-            self.win.move(self.ppos[0], self.ppos[1])
-
+            self.move_end()
+        
         elif ch in (curses.ascii.STX, curses.KEY_LEFT):  # <-
             self.move_left()
             
@@ -178,44 +131,11 @@ class Textbox:
             self.move_right()
 
         elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n
-            if self.ppos[0] < (self.nlines - 1):
-                # within the same vline
-                if self.vpos[1] / self.width \
-                   < len(self.text[self.vpos[0]]) / self.width:
-                    ll = len(self.text[self.vpos[0]])
-                    self.vpos = (
-                        self.vpos[0], min(self.vpos[1] + self.width, ll))
-                    self.ppos = (self.ppos[0] + 1,
-                                 min(self.ppos[1], ll % self.width))
-                # move to next vline
-                else:
-                    ll = len(self.text[self.vpos[0] + 1])
-                    self.vpos = (self.vpos[0] + 1,
-                                 min(self.vpos[1] % self.width, ll))
-                    self.ppos = (self.ppos[0] + 1, min(self.ppos[1], ll))
-                self.win.move(self.ppos[0], self.ppos[1])
-            else:
-                curses.beep()
+            self.move_down()
 
         elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
-            if self.ppos[0] > 0:
-                # move to previous vline
-                if self.vpos[1] < self.width:
-                    ll = len(self.text[self.vpos[0] - 1])
-                    vpos1 = min(int((ll / self.width) * self.width) + self.vpos[1],
-                                ll)
-                    self.vpos = (self.vpos[0] - 1, vpos1)
-                    self.ppos = (self.ppos[0] - 1,
-                                 min(self.ppos[1], ll % self.width))
-                # within the same vline
-                else:
-                    self.vpos = (self.vpos[0], self.vpos[1] - self.width)
-                    self.ppos = (self.ppos[0] - 1, self.ppos[1])
-
-                self.win.move(self.ppos[0], self.ppos[1])
-            else:
-                curses.beep()
-
+            self.move_up()
+            
         elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
             if self.maxy == 0 or self.nlines == self.height:  # no space
                 curses.beep()
@@ -234,13 +154,10 @@ class Textbox:
                 self.delete()
 
         elif ch == curses.ascii.VT:  # ^k
-
-            if len(self.text[self.vpos[0]]) == 0 and self.vpos[0] > 0:
-                # del at the beginning of a vline
-                backy, backx = self.ppos
-                self.delat(self.vpos)
-                self.ppos = (backy, backx)
-                self.win.move(self.ppos[0], self.ppos[1])
+            
+            if len(self.text[self.vpos[0]]) == 0:
+                # if there is nothing in the vline
+                self.delete()
             else:
                 self.clear_right()
 
@@ -270,7 +187,7 @@ class Textbox:
 
         # clear the redrawn part
         for i in range(ppos[1], self.width):
-            self.win.addch(ppos[0], i, ' ')
+            self.win.insch(ppos[0], i, ' ')
         for l in range(ppos[0]+1, self.maxy):
             self.clear_line(l)
             
@@ -304,8 +221,26 @@ class Textbox:
         
         return
 
-    def move_left(self):
 
+    def move_front(self):
+        self.ppos = (self.ppos[0], 0)
+        self.vpos = (
+            self.vpos[0], int((self.vpos[1] / self.width) * self.width))
+        self.win.move(self.ppos[0], self.ppos[1])
+
+    def move_end(self):
+        if self.vpos[1] < max(self.lnbg[self.vpos[0]]):
+            self.ppos = (self.ppos[0], self.maxx)
+            self.vpos = (self.vpos[0],
+                         int((self.vpos[1] / self.width + 1) * self.width - 1))
+        else:
+            self.ppos = (self.ppos[0],
+                         len(self.text[self.vpos[0]]) % self.width)
+            self.vpos = (self.vpos[0], len(self.text[self.vpos[0]]))
+
+        self.win.move(self.ppos[0], self.ppos[1])
+        
+    def move_left(self):
         if self.ppos[1] > 0:
             self.ppos = (self.ppos[0], self.ppos[1] - 1)
             self.vpos = (self.vpos[0], self.vpos[1] - 1)
@@ -321,7 +256,6 @@ class Textbox:
                 self.vpos = (self.vpos[0], self.vpos[1] - 1)
                 self.ppos = (self.ppos[0] - 1, self.maxx)
         self.win.move(self.ppos[0], self.ppos[1])
-
     
     def move_right(self):
 
@@ -344,6 +278,45 @@ class Textbox:
                 self.ppos = (self.ppos[0] + 1, 0)
         self.win.move(self.ppos[0], self.ppos[1])
 
+    def move_down(self):
+        if self.ppos[0] < (self.nlines - 1):
+            # within the same vline
+            if self.vpos[1] / self.width \
+               < len(self.text[self.vpos[0]]) / self.width:
+                ll = len(self.text[self.vpos[0]])
+                self.vpos = (
+                    self.vpos[0], min(self.vpos[1] + self.width, ll))
+                self.ppos = (self.ppos[0] + 1,
+                             min(self.ppos[1], ll % self.width))
+            # move to next vline
+            else:
+                ll = len(self.text[self.vpos[0] + 1])
+                self.vpos = (self.vpos[0] + 1,
+                             min(self.vpos[1] % self.width, ll))
+                self.ppos = (self.ppos[0] + 1, min(self.ppos[1], ll))
+            self.win.move(self.ppos[0], self.ppos[1])
+        else:
+            curses.beep()
+
+    def move_up(self):
+        if self.ppos[0] > 0:
+            # move to previous vline
+            if self.vpos[1] < self.width:
+                ll = len(self.text[self.vpos[0] - 1])
+                vpos1 = min(int((ll / self.width) * self.width) + self.vpos[1],
+                            ll)
+                self.vpos = (self.vpos[0] - 1, vpos1)
+                self.ppos = (self.ppos[0] - 1,
+                             min(self.ppos[1], ll % self.width))
+            # within the same vline
+            else:
+                self.vpos = (self.vpos[0], self.vpos[1] - self.width)
+                self.ppos = (self.ppos[0] - 1, self.ppos[1])
+
+            self.win.move(self.ppos[0], self.ppos[1])
+        else:
+            curses.beep()
+            
     def delat(self, vpos):
         "Delete chracter at position vpos"
 
@@ -366,7 +339,7 @@ class Textbox:
 
         self.nlines = sum(len(x) for x in self.lnbg[:vpos[0]])
         for i in range(self.ppos[1], self.width):
-            self.win.addch(self.ppos[0], i, ' ')
+            self.win.insch(self.ppos[0], i, ' ')
         
         self.redraw_vlines(vpos, self.ppos)
 
@@ -385,7 +358,7 @@ class Textbox:
         "Clear one line at the line number ln"
         
         for i in range(self.width):
-            self.win.addch(ln, i, ' ')
+            self.win.insch(ln, i, ' ')
         
     def clear_right(self):
         "Clear right side of the cursor."
@@ -400,12 +373,10 @@ class Textbox:
             = range(0, len(self.text[self.vpos[0]]), self.width)
         if len(self.lnbg[self.vpos[0]]) == 0:
             self.lnbg[self.vpos[0]] = [0]
+        self.nlines = sum(len(x) for x in self.lnbg)
 
-        # redraw the bottom lines
-        pos = (sum(len(x) for x in self.lnbg[:self.vpos[0]]), 0)
-
-        self.redraw_vlines(pos, self.vpos[0],
-                           len(self.text))
+        # redraw the vlines
+        self.redraw_vlines(self.vpos, self.ppos)
 
         # set the cursor back
         self.ppos = (backy, backx)
@@ -434,7 +405,7 @@ class Textbox:
 
         # clear the right part of the pline
         for c in range(self.ppos[1], self.width):
-            self.win.addch(self.ppos[0], c, ' ')
+            self.win.insch(self.ppos[0], c, ' ')
 
         # move p- and v- cursors
         self.ppos = (self.ppos[0] + 1, 0)
