@@ -67,6 +67,71 @@ class Textbox:
         (maxy, maxx) = self.win.getmaxyx()
         return maxy - 1, maxx - 1
 
+    def do_command(self, ch):
+        "Process a single editing command."
+        self.nlines = sum(len(x) for x in self.lnbg)
+        self.lastcmd = ch
+
+        if curses.ascii.isprint(ch):
+            if self.ppos[0] < self.maxy or self.ppos[1] < self.maxx:
+                if self._insert_printable_char(ch)==0:
+                    curses.beep()
+            else:
+                curses.beep()
+
+        elif ch == curses.KEY_RESIZE:
+            self.refresh()
+            
+        elif ch == curses.ascii.SOH:  # ^a
+            self.move_front()
+
+        elif ch == curses.ascii.ENQ:  # ^e
+            self.move_end()
+        
+        elif ch in (curses.ascii.STX, curses.KEY_LEFT):  # ^b <-
+            self.move_left()
+            
+        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f ->
+            self.move_right()
+
+        elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n down
+            self.move_down()
+
+        elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p up
+            self.move_up()
+            
+        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
+            if self.maxy == 0 or self.nlines == self.height:  # no space
+                curses.beep()
+            elif self.ppos[0] < self.maxy:
+                self.newline()
+                
+        elif ch == curses.ascii.EOT:  # ^d
+            self.delete()
+
+        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
+            if (self.vpos[0] == 0) and (self.vpos[1] == 0):
+                curses.beep()
+            else:
+                # move one left and del
+                self.move_left()
+                self.delete()
+
+        elif ch == curses.ascii.VT:  # ^k            
+            if len(self.text[self.vpos[0]]) == 0:
+                # if there is nothing in the vline
+                self.delete()
+            else:
+                self.clear_right()
+
+        elif ch == curses.ascii.FF:  # ^l
+            self.refresh()
+
+        elif ch == curses.ascii.BEL:  # ^g
+            return 0
+
+        return 1
+
     def _insert_printable_char(self, ch):
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
 
@@ -97,90 +162,6 @@ class Textbox:
             self.ppos = (backy, backx+1)
         self.vpos = (self.vpos[0], self.vpos[1]+1)
         self.win.move(*self.ppos)
-
-    def drawline(self, ln):
-        bg = self.lnbg[ln]
-        ed = min(len(self.text[bg[0]]) - self.text[bg[0]][bg[1]],  self.maxx)
-        self.win.addstr(ln, 0, self.text[bg[0]][bg[1]:ed])
-
-    def do_command(self, ch):
-        "Process a single editing command."
-        self.nlines = sum(len(x) for x in self.lnbg)
-        self.lastcmd = ch
-
-        if curses.ascii.isprint(ch):
-            if self.ppos[0] < self.maxy or self.ppos[1] < self.maxx:
-                if self._insert_printable_char(ch)==0:
-                    curses.beep()
-            else:
-                curses.beep()
-
-        elif ch == curses.KEY_RESIZE:
-            self.refresh()
-            
-        elif ch == curses.ascii.SOH:  # ^a
-            self.move_front()
-
-        elif ch == curses.ascii.ENQ:  # ^e
-            self.move_end()
-        
-        elif ch in (curses.ascii.STX, curses.KEY_LEFT):  # <-
-            self.move_left()
-            
-        elif ch in (curses.ascii.ACK, curses.KEY_RIGHT):  # ^f ->
-            self.move_right()
-
-        elif ch in (curses.ascii.SO, curses.KEY_DOWN):  # ^n
-            self.move_down()
-
-        elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p
-            self.move_up()
-            
-        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
-            if self.maxy == 0 or self.nlines == self.height:  # no space
-                curses.beep()
-            elif self.ppos[0] < self.maxy:
-                self.newline()
-                
-        elif ch == curses.ascii.EOT:  # ^d
-            self.delete()
-
-        elif ch in (curses.ascii.BS, curses.KEY_BACKSPACE, curses.ascii.DEL):
-            if (self.vpos[0] == 0) and (self.vpos[1] == 0):
-                curses.beep()
-            else:
-                # move one left and del
-                self.move_left()
-                self.delete()
-
-        elif ch == curses.ascii.VT:  # ^k
-            
-            if len(self.text[self.vpos[0]]) == 0:
-                # if there is nothing in the vline
-                self.delete()
-            else:
-                self.clear_right()
-
-        elif ch == curses.ascii.FF:  # ^l
-            self.refresh()
-
-        elif ch == curses.ascii.BEL:  # ^g
-            return 0
-
-        return 1
-
-    def draw_vline(self, pos, ln):
-        "Draw a vline."
-
-        for li in range(0, len(self.text[ln]), self.width):
-            self.win.addstr(pos[0], pos[1],
-                            self.text[ln][li:li + self.width])
-            pos = (pos[0] + 1, pos[1])
-
-        if len(self.text[ln]) == 0:
-            pos = (pos[0] + 1, pos[1])
-
-        return pos
 
     def redraw_vlines(self, vpos, ppos):
         "Redraw vlines starting from vpos to the end at ppos"
