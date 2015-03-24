@@ -276,7 +276,7 @@ class Textbox:
             # cursor at the bottom: scroll down
             if self.ppos[0] == self.maxy:
                 
-                if (self.vptl[1]+self.width) < len(self.text[self.vptl[0]]):
+                if (self.vptl[1]+self.width) <= len(self.text[self.vptl[0]]):
                     self.vptl = (self.vptl[0], self.vptl[1]+self.width)
                 else:
                     self.vptl = (self.vptl[0]+1, 0)
@@ -339,7 +339,10 @@ class Textbox:
         self.nlines = sum(self.lcount)
 
         for i in range(self.ppos[1], self.width):
-            self.win.addch(self.ppos[0], i, ' ')
+            try:
+                self.win.addch(self.ppos[0], i, ' ')
+            except:
+                pass
         
         self.redraw_vlines(vpos, self.ppos)
 
