@@ -54,7 +54,7 @@ class Textbox:
         self.resize_mode = resize_mode
         self.lastcmd = None
         self.text = text.split('\n')
-        self.lnbg = [[0]]
+        self.lnbg = [[0, 0]]  # virtual position of the beginning of the physical lines
         self.ppos = (0, 0)  # physical position
         self.vpos = (0, 0)  # virtual position
         (self.maxy, self.maxx) = self._getmaxyx()
@@ -134,11 +134,12 @@ class Textbox:
 
     def _insert_printable_char(self, ch):
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
-            
-        if (len(self.text[self.vpos[0]]))%self.width == (self.width):
-            self.nlines = sum(len(x) for x in self.lnbg)
-            if self.nlines+1 > self.height:
-                return 0
+
+        # if no scroll
+        # if (len(self.text[self.vpos[0]]))%self.width == (self.width):
+        #     self.nlines = sum(len(x) for x in self.lnbg)
+        #     if self.nlines+1 > self.height:
+        #         return 0
         
         # update text
         self.text[self.vpos[0]]\
@@ -190,17 +191,18 @@ class Textbox:
         # the rest of the vlines
         for i in range(vpos[0]+1, len(self.text)):
             for j in range(len(self.text[i])):
+                if ln == self.height:
+                    return
+                
                 self.win.insch(ln, cn, self.text[i][j])
+
                 if cn+1 == self.width:
                     ln += 1
-                    if ln == self.height:
-                        break
-                cn = (cn+1)%self.width
+                cn = (cn+1) % self.width
             cn = 0
             ln += 1
         
         return
-
 
     def move_front(self):
         self.ppos = (self.ppos[0], 0)
@@ -259,7 +261,26 @@ class Textbox:
         self.win.move(self.ppos[0], self.ppos[1])
 
     def move_down(self):
+
+        self.nlines = sum(len(x) for x in self.lnbg)
+        
         if self.ppos[0] < (self.nlines - 1):
+            # scroll
+            if self.ppos[0] == self.maxy:
+                vv = self.vpos
+                self.ppos = (self.ppos[0]-1, 0)
+                
+                if self.vpos[1] > self.width:
+                    vpos = (self.vpos[0], self.vpos[1]-self.width)
+                elif self.vpos[0] == 0:
+                    return 0
+                else:
+                    vpos = (self.vpos[0]-1, (self.vpos[1]/self.width)*self.width)
+                
+                self.redraw_vlines(vpos, (0,0))
+                self.win.move(*self.ppos)
+                self.vpos = vv
+                
             # within the same vline
             if self.vpos[1] / self.width \
                < len(self.text[self.vpos[0]]) / self.width:
@@ -332,7 +353,6 @@ class Textbox:
             self.delat(self.vpos)
             self.ppos = (backy, backx)
             self.win.move(self.ppos[0], self.ppos[1])
-
         
     def clear_line(self, ln):
         "Clear one line at the line number ln"
@@ -490,7 +510,7 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out, lnbg= Textbox(win, stdscr=stdscr, text='testtext')\
+            out, lnbg= Textbox(win, stdscr=stdscr, text=testtext)\
                 .edit(validate=validate, debug_mode=False)
         except EscapePressed:
             out = None
