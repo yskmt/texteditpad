@@ -55,8 +55,9 @@ class Textbox:
         self.lastcmd = None
         self.text = text.split('\n')
         self.lcount = [1]  # virtual position of the beginning of the physical lines
-        self.ppos = (0, 0)  # physical position
-        self.vpos = (0, 0)  # virtual position
+        self.ppos = (0, 0)  # physical position of the cursor
+        self.vpos = (0, 0)  # virtual position of the cursor
+        self.vptl = (0, 0)  # virtual position of the top-left corner
         (self.maxy, self.maxx) = self._getmaxyx()
         (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
 
@@ -167,17 +168,17 @@ class Textbox:
 
         # clear the redrawn part
         for i in range(ppos[1], self.width):
-            self.win.insch(ppos[0], i, ' ')
-        for l in range(ppos[0]+1, self.maxy):
+            self.win.addch(ppos[0], i, ' ')
+        for l in range(ppos[0]+1, self.height):
             self.clear_line(l)
-            
+
         # now draw each characters
         ln = ppos[0]
         cn = ppos[1]%self.width
 
         # first vline: continuation from the existing vline
         for j in range(vpos[1], len(self.text[vpos[0]])):
-            self.win.insch(ln, cn, self.text[vpos[0]][j])
+            self.win.addch(ln, cn, self.text[vpos[0]][j])
             if cn+1 == self.width:
                 ln += 1
                 if ln == self.height:
@@ -192,8 +193,11 @@ class Textbox:
             for j in range(len(self.text[i])):
                 if ln == self.height:
                     return
-                
-                self.win.insch(ln, cn, self.text[i][j])
+
+                try:
+                    self.win.addch(ln, cn, self.text[i][j])
+                except:
+                    pass
 
                 if cn+1 == self.width:
                     ln += 1
@@ -265,22 +269,21 @@ class Textbox:
 
     def move_down(self):
 
-        if self.ppos[0] < (self.nlines - 1):
-            # scroll
+        if ((self.vpos[1]+self.width) >= len(self.text[self.vpos[0]])) and (self.vpos[0]+1) >= len(self.text):
+            curses.beep()
+        
+        else:
+            # cursor at the bottom: scroll down
             if self.ppos[0] == self.maxy:
-                vv = self.vpos
-                self.ppos = (self.ppos[0]-1, 0)
                 
-                if self.vpos[1] > self.width:
-                    vpos = (self.vpos[0], self.vpos[1]-self.width)
-                elif self.vpos[0] == 0:
-                    return 0
+                if (self.vptl[1]+self.width) < len(self.text[self.vptl[0]]):
+                    self.vptl = (self.vptl[0], self.vptl[1]+self.width)
                 else:
-                    vpos = (self.vpos[0]-1, (self.vpos[1]/self.width)*self.width)
+                    self.vptl = (self.vptl[0]+1, 0)
+                self.ppos = (self.ppos[0]-1, self.ppos[1])
                 
-                self.redraw_vlines(vpos, (0,0))
+                self.redraw_vlines(self.vptl, (0,0))
                 self.win.move(*self.ppos)
-                self.vpos = vv
                 
             # within the same vline
             if self.vpos[1] / self.width \
@@ -297,8 +300,6 @@ class Textbox:
                              min(self.vpos[1] % self.width, ll))
                 self.ppos = (self.ppos[0] + 1, min(self.ppos[1], ll))
             self.win.move(self.ppos[0], self.ppos[1])
-        else:
-            curses.beep()
 
     def move_up(self):
         if self.ppos[0] > 0:
@@ -338,7 +339,7 @@ class Textbox:
         self.nlines = sum(self.lcount)
 
         for i in range(self.ppos[1], self.width):
-            self.win.insch(self.ppos[0], i, ' ')
+            self.win.addch(self.ppos[0], i, ' ')
         
         self.redraw_vlines(vpos, self.ppos)
 
@@ -356,7 +357,10 @@ class Textbox:
         "Clear one line at the line number ln"
         
         for i in range(self.width):
-            self.win.insch(ln, i, ' ')
+            try:
+                self.win.addch(ln, i, ' ')
+            except:
+                pass
         
     def clear_right(self):
         "Clear right side of the cursor."
@@ -394,7 +398,7 @@ class Textbox:
         
         # clear the right part of the pline
         for c in range(self.ppos[1], self.width):
-            self.win.insch(self.ppos[0], c, ' ')
+            self.win.addch(self.ppos[0], c, ' ')
 
         # move p- and v- cursors
         self.ppos = (self.ppos[0] + 1, 0)
@@ -486,8 +490,8 @@ if __name__ == '__main__':
         
         curses.use_default_colors()
         ymax, xmax = stdscr.getmaxyx()
-        ncols, nlines = xmax - 5, ymax - 3
-        # ncols, nlines = 8, 5
+        # ncols, nlines = xmax - 5, ymax - 3
+        ncols, nlines = 20, 5
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
