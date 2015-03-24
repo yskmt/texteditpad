@@ -74,7 +74,7 @@ class Textbox:
 
         if curses.ascii.isprint(ch):
             if self.ppos[0] < self.maxy or self.ppos[1] < self.maxx:
-                if self._insert_printable_char(ch)==0:
+                if self._insert_printable_char(ch) == 0:
                     curses.beep()
             else:
                 curses.beep()
@@ -134,9 +134,8 @@ class Textbox:
 
     def _insert_printable_char(self, ch):
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
-
-        # first check if there is enough space to insert
-        if (len(self.text[self.vpos[0]]))%self.width == (self.width-1):
+            
+        if (len(self.text[self.vpos[0]]))%self.width == (self.width):
             self.nlines = sum(len(x) for x in self.lnbg)
             if self.nlines+1 > self.height:
                 return 0
@@ -178,7 +177,7 @@ class Textbox:
 
         # first vline: continuation from the existing vline
         for j in range(vpos[1], len(self.text[vpos[0]])):
-            self.win.addch(ln, cn, self.text[vpos[0]][j])
+            self.win.insch(ln, cn, self.text[vpos[0]][j])
             if cn+1 == self.width:
                 ln += 1
                 if ln == self.height:
@@ -191,7 +190,7 @@ class Textbox:
         # the rest of the vlines
         for i in range(vpos[0]+1, len(self.text)):
             for j in range(len(self.text[i])):
-                self.win.addch(ln, cn, self.text[i][j])
+                self.win.insch(ln, cn, self.text[i][j])
                 if cn+1 == self.width:
                     ln += 1
                     if ln == self.height:
