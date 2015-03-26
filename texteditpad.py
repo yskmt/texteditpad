@@ -106,11 +106,19 @@ class Textbox:
         elif ch in (curses.ascii.DLE, curses.KEY_UP):  # ^p up
             self.move_up()
 
-        elif ch in [curses.ascii.NL, curses.ascii.SI]:  # ^j, ^o
+        elif ch == curses.ascii.NL:  # ^j
+            if self.height == 1:
+                return 0
+            else:
+                if self.ppos[0] == self.maxy:
+                    self.scroll(self.n_sc)
+                self.newline()
+
+        elif ch == curses.ascii.SI:  #  ^o
             if self.ppos[0] == self.maxy:
                 self.scroll(self.n_sc)
             self.newline()
-
+                
         elif ch == curses.ascii.EOT:  # ^d
             self.delete()
 
@@ -313,7 +321,7 @@ class Textbox:
 
         # cursor at the top
         if self.ppos[0] == 0:
-            if self.vpos[0] == 0:
+            if self.vpos[0] == 0 and self.vpos[1] < self.width:
                 curses.beep()
                 return
             else:
@@ -451,11 +459,23 @@ class Textbox:
             # resize/move window to fit to the new screen size
             # self.stdscr.clear()
             # self.stdscr.refresh()
-            ymax, xmax = self.stdscr.getmaxyx()
-            ncols, nlines = xmax - 5, ymax - 3
-            self.win.resize(nlines, ncols)
-            uly, ulx = 2, 2
-            self.win.mvwin(uly, ulx)
+            ymax, xmax = self.win.getmaxyx()
+            self.height, self.width = (ymax+1, xmax+1)
+            self.vpos = (0,0)
+            self.ppos = (0,0)
+            self.vptl = (0,0)
+            self.lcount = [1]*len(self.text)
+
+            for i in range(len(self.text)):
+                self.lcount[i] = len(self.text[i]) / self.width + 1
+            self.nlines = sum(self.lcount)
+
+            
+            # ymax, xmax = self.stdscr.getmaxyx()
+            # ncols, nlines = xmax - 5, ymax - 3
+            # self.win.resize(nlines, ncols)
+            # uly, ulx = 2, 2
+            # self.win.mvwin(uly, ulx)
             self.win.refresh()
 
         # recalcualte the line count
@@ -521,7 +541,7 @@ if __name__ == '__main__':
         curses.use_default_colors()
         ymax, xmax = stdscr.getmaxyx()
         # ncols, nlines = xmax - 5, ymax - 3
-        ncols, nlines = 15, 4
+        ncols, nlines = 40, 20
         uly, ulx = 2, 2
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
@@ -529,7 +549,7 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = Textbox(win, stdscr=stdscr, text='', resize_mode=False)\
+            out = Textbox(win, stdscr=stdscr, text='', resize_mode=True)\
                 .edit(validate=validate, debug_mode=True)
         except EscapePressed:
             out = None
