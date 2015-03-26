@@ -13,21 +13,18 @@ Usage
 
 .. code:: python
 
-
-    import curses
-    import texteditpad
-
     def test_editbox(stdscr):
-        ncols, nlines = 10, 10
+        ncols, nlines = 9, 4
         uly, ulx = 15, 20
         stdscr.addstr(uly - 2, ulx, "Use Ctrl-G to end editing.")
         win = curses.newwin(nlines, ncols, uly, ulx)
         stdscr.refresh()
-
+    
         return texteditpad.Textbox(win).edit()
-
+    
     text = curses.wrapper(test_editbox)
-    print 'Contents of text box:', repr(text)
+    print 'Contents of text box:'
+    print text
 
 Commands
 ========
