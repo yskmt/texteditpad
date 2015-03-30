@@ -550,7 +550,7 @@ if __name__ == '__main__':
 
         try:
             out = Textbox(win, stdscr=stdscr, text='', resize_mode=True)\
-                .edit(validate=validate, debug_mode=True)
+                .edit(validate=validate, debug_mode=False)
         except EscapePressed:
             out = None
 
