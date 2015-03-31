@@ -82,9 +82,9 @@ class Textbox(object):
     def _addch(self, y, x, ch):
         "self.win.addch fix: problem at lower-right corner"
 
-        # TODO: unicode support: ch.encode('utf-8')
+        # TODO: unicode support: ch.encode('utf-8')?
         try:
-            self.win.addch(y, x, ch)
+            self.win.addch(y, x, ch.encode())
         except:
             pass
 
