@@ -40,6 +40,7 @@ class Textbox(object):
     Ctrl-F      Cursor right, wrapping to next line when appropriate.
     Ctrl-G      Terminate, returning the window contents.
     Ctrl-H      Delete character backward.
+    Ctrl-I      Toggle insert/overwrite modes.
     Ctrl-J      Terminate if the window is 1 line, otherwise insert newline.
     Ctrl-K      If line is blank, delete it, otherwise clear to end of line.
     Ctrl-L      Refresh screen.
@@ -168,7 +169,7 @@ class Textbox(object):
             self.text[self.vpos[0]]\
                 = self.text[self.vpos[0]][:self.vpos[1]] + chr(ch) \
                 + trailingstr[1:]
-            self._addch(self.ppos[0], self.ppos[1], chr(ch).encode())
+            self._addch(self.ppos[0], self.ppos[1], chr(ch))
             self.ppos = self.win.getyx()
             self.vpos = (self.vpos[0], self.vpos[1]+1)
 
@@ -515,7 +516,7 @@ class Textbox(object):
         # replace the cursor
         self.win.move(*self.ppos)
 
-    def edit(self, validate=None, debug_mode=False):
+    def edit(self, validate=None):
         "Edit in the widget window and collect the results."
         while 1:
 
@@ -532,17 +533,6 @@ class Textbox(object):
                 continue
             if not self.do_command(ch):
                 break
-
-            if debug_mode:
-                (backy, backx) = self.win.getyx()
-                maxy, maxx = self._getmaxyx()
-                self.win.addstr(maxy, 0, ' ' * maxx)
-                self.win.addstr(maxy, 0, '%d %d %d %d %d'
-                                % (ch, self.vpos[0], self.vpos[1],
-                                   self.ppos[0], self.ppos[1]))
-                # self.win.addstr(maxy, 0, str(self.lnbg))
-                self.win.refresh()
-                self.win.move(backy, backx)
 
         return '\n'.join(self.text)
 
@@ -583,7 +573,7 @@ if __name__ == '__main__':
         try:
             out = Textbox(win, stdscr=stdscr, text='',
                           resize_mode=True, insert_mode=True)\
-                .edit(validate=validate, debug_mode=False)
+                .edit(validate=validate)
         except EscapePressed:
             out = None
 

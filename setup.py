@@ -1,6 +1,6 @@
 from setuptools import setup
 
-__version__ = '0.31'
+__version__ = '0.32'
 
 setup(
     name='texteditpad',
@@ -20,6 +20,7 @@ setup(
         'Operating System :: POSIX',
         'Natural Language :: English',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
         'Topic :: Terminals',
         'Topic :: Utilities',
         'Topic :: Text Editors'
