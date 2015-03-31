@@ -6,9 +6,13 @@ from builtins import chr
 from builtins import range
 from builtins import object
 
+import sys
 import curses
 import curses.ascii
+# from six.moves import range
 
+import locale
+locale.setlocale(locale.LC_ALL, '')
 
 def rectangle(win, uly, ulx, lry, lrx):
     """Draw a rectangle with corners at the provided upper-left
@@ -77,6 +81,8 @@ class Textbox(object):
 
     def _addch(self, y, x, ch):
         "self.win.addch fix: problem at lower-right corner"
+
+        # TODO: unicode support: ch.encode('utf-8')
         try:
             self.win.addch(y, x, ch)
         except:
@@ -88,9 +94,11 @@ class Textbox(object):
         self.lastcmd = ch
 
         if curses.ascii.isprint(ch):
+        # else:
             if self._insert_printable_char(ch) == 0:
                 curses.beep()
 
+        
         elif ch == curses.KEY_RESIZE:
             self.refresh()
 
@@ -148,7 +156,7 @@ class Textbox(object):
 
         elif ch == curses.ascii.BEL:  # ^g
             return 0
-
+        
         return 1
 
     def _insert_printable_char(self, ch):
@@ -498,7 +506,14 @@ class Textbox(object):
     def edit(self, validate=None, debug_mode=False):
         "Edit in the widget window and collect the results."
         while 1:
-            ch = self.win.getch()
+
+            # unicode support: currently disabled
+            if sys.version_info > (3,3):
+                # ch = self.win.get_wch()
+                ch = self.win.getch()
+            else:
+                ch = self.win.getch()
+                
             if validate:
                 ch = validate(ch)
             if not ch:
