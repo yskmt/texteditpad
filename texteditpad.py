@@ -94,10 +94,8 @@ class Textbox(object):
         self.lastcmd = ch
 
         if curses.ascii.isprint(ch):
-        # else:
             if self._insert_printable_char(ch) == 0:
                 curses.beep()
-
         
         elif ch == curses.KEY_RESIZE:
             self.refresh()
@@ -154,6 +152,9 @@ class Textbox(object):
         elif ch == curses.ascii.FF:  # ^l
             self.refresh()
 
+        elif ch == curses.ascii.HT:  # ^i
+            self.insert_mode = not self.insert_mode
+            
         elif ch == curses.ascii.BEL:  # ^g
             return 0
         
@@ -162,11 +163,22 @@ class Textbox(object):
     def _insert_printable_char(self, ch):
         trailingstr = self.text[self.vpos[0]][self.vpos[1]:]
 
+        # overwrite mode
+        if self.insert_mode == False:
+            self.text[self.vpos[0]]\
+                = self.text[self.vpos[0]][:self.vpos[1]] + chr(ch) \
+                + trailingstr[1:]
+            self._addch(self.ppos[0], self.ppos[1], chr(ch).encode())
+            self.ppos = self.win.getyx()
+            self.vpos = (self.vpos[0], self.vpos[1]+1)
+
+            return 1
+        
         # update text
         self.text[self.vpos[0]]\
             = self.text[self.vpos[0]][:self.vpos[1]] + chr(ch) \
             + trailingstr
-
+            
         # update line count
         self.lcount[self.vpos[0]] = len(
             self.text[self.vpos[0]]) // self.width + 1
@@ -569,7 +581,8 @@ if __name__ == '__main__':
         stdscr.refresh()
 
         try:
-            out = Textbox(win, stdscr=stdscr, text='', resize_mode=True)\
+            out = Textbox(win, stdscr=stdscr, text='',
+                          resize_mode=True, insert_mode=True)\
                 .edit(validate=validate, debug_mode=False)
         except EscapePressed:
             out = None

@@ -49,6 +49,8 @@ following Emacs-like key bindings:
 +-----------+----------------------------------------------------------------+
 | Ctrl-H    | Delete character backward.                                     |
 +-----------+----------------------------------------------------------------+
+| Ctrl-I    | Toggle insert/overwrite modes.                                 |
++-----------+----------------------------------------------------------------+
 | Ctrl-K    | If line is blank, delete it, otherwise clear to end of line.   |
 +-----------+----------------------------------------------------------------+
 | Ctrl-L    | Refresh screen.                                                |
