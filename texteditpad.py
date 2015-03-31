@@ -1,4 +1,10 @@
 """Simple textbox editing widget with Emacs-like keybindings."""
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+from builtins import chr
+from builtins import range
+from builtins import object
 
 import curses
 import curses.ascii
@@ -18,7 +24,7 @@ def rectangle(win, uly, ulx, lry, lrx):
     win.addch(lry, ulx, curses.ACS_LLCORNER)
 
 
-class Textbox:
+class Textbox(object):
 
     """Editing widget using the interior of a window object.
      Supports the following Emacs-like key bindings:
@@ -114,11 +120,11 @@ class Textbox:
                     self.scroll(self.n_sc)
                 self.newline()
 
-        elif ch == curses.ascii.SI:  #  ^o
+        elif ch == curses.ascii.SI:  # ^o
             if self.ppos[0] == self.maxy:
                 self.scroll(self.n_sc)
             self.newline()
-                
+
         elif ch == curses.ascii.EOT:  # ^d
             self.delete()
 
@@ -155,11 +161,11 @@ class Textbox:
 
         # update line count
         self.lcount[self.vpos[0]] = len(
-            self.text[self.vpos[0]]) / self.width + 1
+            self.text[self.vpos[0]]) // self.width + 1
         self.nlines = sum(self.lcount)
 
         # redraw!
-        
+
         if self.ppos[0] == self.maxy and self.ppos[1] == self.maxx:
             self.scroll(self.n_sc)
             (backy, backx) = self.win.getyx()
@@ -177,7 +183,7 @@ class Textbox:
         self.win.move(*self.ppos)
 
         return 1
-        
+
     def redraw_vlines(self, vpos, ppos):
         "Redraw vlines starting from vpos to the end at ppos"
 
@@ -222,15 +228,15 @@ class Textbox:
     def move_front(self):
         self.ppos = (self.ppos[0], 0)
         self.vpos = (
-            self.vpos[0], int((self.vpos[1] / self.width) * self.width))
+            self.vpos[0], self.vpos[1] // self.width * self.width)
         self.win.move(self.ppos[0], self.ppos[1])
 
     def move_end(self):
         # within a vline
-        if (self.vpos[1] / self.width + 1) < self.lcount[self.vpos[0]]:
+        if (self.vpos[1] // self.width + 1) < self.lcount[self.vpos[0]]:
             self.ppos = (self.ppos[0], self.maxx)
             self.vpos = (self.vpos[0],
-                         int((self.vpos[1] / self.width + 1) * self.width - 1))
+                         int((self.vpos[1] // self.width + 1) * self.width - 1))
         # at the end of vline
         else:
             self.ppos = (self.ppos[0],
@@ -265,12 +271,12 @@ class Textbox:
     def move_right(self):
 
         ll = len(self.text[self.vpos[0]])
-        
+
         if (self.ppos[1] < self.maxx) and (self.vpos[1] < ll):
             self.ppos = (self.ppos[0], self.ppos[1] + 1)
             self.vpos = (self.vpos[0], self.vpos[1] + 1)
         # no space to move
-        elif ((self.vpos[0]+1) == len(self.text)) \
+        elif ((self.vpos[0] + 1) == len(self.text)) \
                 and (self.vpos[1] == ll):
             curses.beep()
             return
@@ -288,10 +294,10 @@ class Textbox:
         self.win.move(self.ppos[0], self.ppos[1])
 
     def move_down(self):
-        
+
         # no more space to move down
-        if (self.vpos[0]+1) == len(self.text)\
-           and (self.vpos[1]/self.width+1) == self.lcount[self.vpos[0]]:
+        if (self.vpos[0] + 1) == len(self.text)\
+           and (self.vpos[1] // self.width + 1) == self.lcount[self.vpos[0]]:
             curses.beep()
             return
 
@@ -301,7 +307,7 @@ class Textbox:
                 self.scroll(self.n_sc)
 
             # within the same vline
-            if (self.vpos[1]/self.width+1) < self.lcount[self.vpos[0]]:                
+            if (self.vpos[1] // self.width + 1) < self.lcount[self.vpos[0]]:
                 ll = len(self.text[self.vpos[0]])
                 vpos1 = min(self.vpos[1] + self.width, ll)
                 self.vpos = (
@@ -330,7 +336,7 @@ class Textbox:
         # move to previous vline
         if self.vpos[1] < self.width:
             ll = len(self.text[self.vpos[0] - 1])
-            vpos1 = min(int((ll / self.width) * self.width) + self.vpos[1],
+            vpos1 = min(int((ll // self.width) * self.width) + self.vpos[1],
                         ll)
             self.vpos = (self.vpos[0] - 1, vpos1)
             self.ppos = (self.ppos[0] - 1,
@@ -375,7 +381,7 @@ class Textbox:
             self.text.pop(vpos[0] + 1)
             self.lcount.pop(vpos[0] + 1)
 
-        self.lcount[vpos[0]] = len(self.text[vpos[0]]) / self.width + 1
+        self.lcount[vpos[0]] = len(self.text[vpos[0]]) // self.width + 1
         self.nlines = sum(self.lcount)
 
         for i in range(self.ppos[1], self.width):
@@ -409,7 +415,7 @@ class Textbox:
 
         # update line count
         self.lcount[self.vpos[0]] = len(
-            self.text[self.vpos[0]]) / self.width + 1
+            self.text[self.vpos[0]]) // self.width + 1
         self.nlines = sum(self.lcount)
 
         # redraw the vlines
@@ -430,9 +436,9 @@ class Textbox:
 
         # update the line counts
         self.lcount.insert(self.vpos[0] + 1,
-                           len(self.text[self.vpos[0] + 1]) / self.width + 1)
+                           len(self.text[self.vpos[0] + 1]) // self.width + 1)
         self.lcount[self.vpos[0]] = len(
-            self.text[self.vpos[0]]) / self.width + 1
+            self.text[self.vpos[0]]) // self.width + 1
         self.nlines = sum(self.lcount)
 
         # clear the right part of the pline
@@ -460,17 +466,16 @@ class Textbox:
             # self.stdscr.clear()
             # self.stdscr.refresh()
             ymax, xmax = self.win.getmaxyx()
-            self.height, self.width = (ymax+1, xmax+1)
-            self.vpos = (0,0)
-            self.ppos = (0,0)
-            self.vptl = (0,0)
-            self.lcount = [1]*len(self.text)
+            self.height, self.width = (ymax + 1, xmax + 1)
+            self.vpos = (0, 0)
+            self.ppos = (0, 0)
+            self.vptl = (0, 0)
+            self.lcount = [1] * len(self.text)
 
             for i in range(len(self.text)):
-                self.lcount[i] = len(self.text[i]) / self.width + 1
+                self.lcount[i] = len(self.text[i]) // self.width + 1
             self.nlines = sum(self.lcount)
 
-            
             # ymax, xmax = self.stdscr.getmaxyx()
             # ncols, nlines = xmax - 5, ymax - 3
             # self.win.resize(nlines, ncols)
@@ -481,7 +486,7 @@ class Textbox:
         # recalcualte the line count
         (self.maxy, self.maxx) = self._getmaxyx()
         (self.height, self.width) = (self.maxy + 1, self.maxx + 1)
-        self.lcount = map(lambda x: len(x) / self.width + 1, self.text)
+        self.lcount = list([(len(x) // self.width + 1) for x in self.text])
         self.nlines = sum(self.lcount)
 
         # redraw the texteditbox
@@ -557,5 +562,5 @@ if __name__ == '__main__':
         return out
 
     text = curses.wrapper(test_editbox)
-    print 'Contents of text box:'
-    print text
+    print('Contents of text box:')
+    print(text)
